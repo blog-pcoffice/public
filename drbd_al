@@ -1,0 +1,57 @@
+#!/usr/bin/perl
+#%# family=auto
+#%# capabilities=autoconf
+# http://www.drbd.org/en/doc/users-guide-84/ch-admin#s-performance-indicators
+
+use strict;
+my $file="/proc/drbd";
+my $store = {};
+my $rid;
+
+&crunch;
+&display;
+
+sub display{
+  if ($ARGV[0] and $ARGV[0] eq "config"){
+    print "graph_title DRBD (Activity Log)\n";
+    print "graph_category DRBD\n";
+    print "graph_info Graph DRBD (Activity Log)\n";
+    print "graph_vlabel Graph DRBD (Activity Log)\n";
+    print "graph_scale yes\n";
+    print "graph_args --base 1024 --lower-limit 0\n";
+    print "graph_period second\n";
+    print "graph_height 200\n";
+    print "graph_width 400\n";
+    print "graph_printf %7.2lf\n";
+    foreach my $key ( keys %$store ){
+      my $drbdname = 'drbd'.$key;
+      print $drbdname."al.label $drbdname Activity log\n";
+      print $drbdname."al.min 0\n";
+#      print $drbdname."al.type DERIVE\n";
+    }
+    exit 0;
+  }
+  foreach my $key ( keys %$store ){
+    my $drbdname = 'drbd'.$key;
+    print $drbdname."al.value ".$store->{$key}->{'al'}."\n";
+  }
+}
+
+sub crunch{
+  open (IN, $file ) || die "Could not open $file for reading: $!";
+  if ($ARGV[0] and $ARGV[0] eq "autoconf"){
+    close (IN);
+    print "yes\n";
+    exit 0;
+  }
+  while (<IN>){
+    next if /version:|GIT-hash:/;
+    chomp;
+    my ($drbd) = $_ =~ /^\s+(\d):/;
+    $rid = $drbd if $drbd =~ /\d/;
+    my ($al) = $_ =~ /al:(\d*)/; $store->{ $rid }->{'al'} = $al if $al ne undef;
+  }
+  close (IN);
+}
+
+exit 0;

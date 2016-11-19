@@ -1,0 +1,70 @@
+#!/usr/bin/perl
+#%# family=auto
+#%# capabilities=autoconf
+# http://www.drbd.org/en/doc/users-guide-84/ch-admin#s-performance-indicators
+
+use strict;
+my $file="/proc/drbd";
+my $store = {};
+my $rid;
+
+&crunch;
+&display;
+
+sub display{
+  if ($ARGV[0] and $ARGV[0] eq "config"){
+    print "graph_title DRBD (Ext)\n";
+    print "graph_category DRBD\n";
+    print "graph_info Graph DRBD (Ext)\n";
+    print "graph_vlabel Graph DRBD (Ext)\n";
+    print "graph_scale yes\n";
+    print "graph_args --base 1024 --lower-limit 0\n";
+    print "graph_period second\n";
+    print "graph_height 200\n";
+    print "graph_width 400\n";
+    print "graph_printf %7.2lf\n";
+    foreach my $key ( keys %$store ){
+      my $drbdname = 'drbd'.$key;
+      print $drbdname."bm.label $drbdname Bit Map\n";
+      print $drbdname."lo.label $drbdname Local count\n";
+      print $drbdname."pe.label $drbdname Pending\n";
+      print $drbdname."ua.label $drbdname UnAcknowledged\n";
+      print $drbdname."ap.label $drbdname Application Pending\n";
+      print $drbdname."ep.label $drbdname Epochs\n";
+    }
+    exit 0;
+  }
+  foreach my $key ( keys %$store ){
+    my $drbdname = 'drbd'.$key;
+    print $drbdname."bm.value ".$store->{$key}->{'bm'}."\n";
+    print $drbdname."lo.value ".$store->{$key}->{'lo'}."\n";
+    print $drbdname."pe.value ".$store->{$key}->{'pe'}."\n";
+    print $drbdname."ua.value ".$store->{$key}->{'ua'}."\n";
+    print $drbdname."ap.value ".$store->{$key}->{'ap'}."\n";
+    print $drbdname."ep.value ".$store->{$key}->{'ep'}."\n";
+  }
+}
+
+sub crunch{
+  open (IN, $file ) || die "Could not open $file for reading: $!";
+  if ($ARGV[0] and $ARGV[0] eq "autoconf"){
+    close (IN);
+    print "yes\n";
+    exit 0;
+  }
+  while (<IN>){
+    next if /version:|GIT-hash:/;
+    chomp;
+    my ($drbd) = $_ =~ /^\s+(\d):/;
+    $rid = $drbd if $drbd =~ /\d/;
+    my ($bm) = $_ =~ /bm:(\d*)/; $store->{ $rid }->{'bm'} = $bm if $bm ne undef;
+    my ($lo) = $_ =~ /lo:(\d*)/; $store->{ $rid }->{'lo'} = $lo if $lo ne undef;
+    my ($pe) = $_ =~ /pe:(\d*)/; $store->{ $rid }->{'pe'} = $pe if $pe ne undef;
+    my ($ua) = $_ =~ /ua:(\d*)/; $store->{ $rid }->{'ua'} = $ua if $ua ne undef;
+    my ($ap) = $_ =~ /ap:(\d*)/; $store->{ $rid }->{'ap'} = $ap if $ap ne undef;
+    my ($ep) = $_ =~ /ep:(\d*)/; $store->{ $rid }->{'ep'} = $ep if $ep ne undef;
+  }
+  close (IN);
+}
+
+exit 0;

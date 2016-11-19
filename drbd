@@ -1,0 +1,82 @@
+#!/usr/bin/perl
+#%# family=auto
+#%# capabilities=autoconf
+# http://www.drbd.org/en/doc/users-guide-84/ch-admin#s-performance-indicators
+
+use strict;
+my $file="/proc/drbd";
+my $store = {};
+my $rid;
+
+&crunch;
+&display;
+
+sub display{
+  if ($ARGV[0] and $ARGV[0] eq "config"){
+    print "graph_title DRBD\n";
+    print "graph_category DRBD\n";
+    print "graph_info Graph DRBD\n";
+    print "graph_vlabel Graph DRBD (Bytes/sec)\n";
+    print "graph_scale yes\n";
+    print "graph_args --base 1024 --lower-limit 0\n";
+    print "graph_period second\n";
+    print "graph_height 200\n";
+    print "graph_width 400\n";
+    print "graph_printf %7.2lf\n";
+    foreach my $key ( keys %$store ){
+      my $drbdname = 'drbd'.$key;
+      print $drbdname."dr.label $drbdname Disk Read\n";
+      print $drbdname."dw.label $drbdname Disk Write\n";
+      print $drbdname."ns.label $drbdname Network Send\n";
+      print $drbdname."nr.label $drbdname Network Receive\n";
+      print $drbdname."os.label $drbdname Out of Sync\n";
+      print $drbdname."dr.cdef ".$drbdname."dr,1024,*\n";
+      print $drbdname."dw.cdef ".$drbdname."dw,1024,*\n";
+      print $drbdname."ns.cdef ".$drbdname."ns,1024,*\n";
+      print $drbdname."nr.cdef ".$drbdname."nr,1024,*\n";
+      print $drbdname."os.cdef ".$drbdname."os,1024,*\n";
+      print $drbdname."dr.min 0\n";
+      print $drbdname."dw.min 0\n";
+      print $drbdname."ns.min 0\n";
+      print $drbdname."nr.min 0\n";
+      print $drbdname."os.min 0\n";
+      print $drbdname."dr.type DERIVE\n";
+      print $drbdname."dw.type DERIVE\n";
+      print $drbdname."ns.type DERIVE\n";
+      print $drbdname."nr.type DERIVE\n";
+      print $drbdname."os.type DERIVE\n";
+    }
+    exit 0;
+  }
+  foreach my $key ( keys %$store ){
+    my $drbdname = 'drbd'.$key;
+    print $drbdname."dw.value ".$store->{$key}->{'dw'}."\n";
+    print $drbdname."dr.value ".$store->{$key}->{'dr'}."\n";
+    print $drbdname."ns.value ".$store->{$key}->{'ns'}."\n";
+    print $drbdname."nr.value ".$store->{$key}->{'nr'}."\n";
+    print $drbdname."os.value ".$store->{$key}->{'os'}."\n";
+  }
+}
+
+sub crunch{
+  open (IN, $file) || die "Could not open $file for reading: $!";
+  if ($ARGV[0] and $ARGV[0] eq "autoconf"){
+    close (IN);
+    print "yes\n";
+    exit 0;
+  }
+  while (<IN>){
+    next if /version:|GIT-hash:/;
+    chomp;
+    my ($drbd) = $_ =~ /^\s+(\d):/;
+    $rid = $drbd if $drbd =~ /\d/;
+    my ($ns) = $_ =~ /ns:(\d*)/;  $store->{ $rid }->{'ns'} = $ns if $ns ne undef;
+    my ($nr) = $_ =~ /nr:(\d*)/;  $store->{ $rid }->{'nr'} = $nr if $ns ne undef;
+    my ($dw) = $_ =~ /dw:(\d*)/;  $store->{ $rid }->{'dw'} = $dw if $dw ne undef;
+    my ($dr) = $_ =~ /dr:(\d*)/;  $store->{ $rid }->{'dr'} = $dr if $dr ne undef;
+    my ($os) = $_ =~ /oos:(\d*)/; $store->{ $rid }->{'os'} = $os if $os ne undef;
+  }
+  close (IN);
+}
+
+exit 0;

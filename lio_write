@@ -1,0 +1,91 @@
+#!/bin/sh
+#%# family=auto
+#%# capabilities=autoconf
+
+if [ "$1" = "autoconf" ]; then
+  if [ -d /sys/kernel/config/target/iscsi/iqn.*/tpgt_1 ]; then
+    echo yes
+  else
+    echo 'no (no iscsi target)'
+  fi
+  exit 0
+fi
+if [ "$1" = "config" ]; then
+  echo 'graph_title LIO (Write)'
+  echo 'graph_category LIO'
+  echo 'graph_info Graph LIO (Write)'
+  echo 'graph_vlabel Graph LIO (Bytes/sec)'
+  echo 'graph_scale yes'
+  echo 'graph_args --base 1024 --lower-limit 0'
+  echo 'graph_period second'
+#  echo 'graph_height 200'
+#  echo 'graph_width 400'
+  echo 'graph_printf %7.2lf'
+
+  TGT_=
+  INI_=
+  for i in $(echo /sys/kernel/config/target/iscsi/iqn.*/tpgt_1/acls/iqn.*/*/statistics/scsi_auth_intr/write_mbytes | LANG=C sort)
+  do
+    TGT=$(echo $i | cut -d/ -f7)
+    INI=$(echo $i | cut -d/ -f10)
+    LUN=$(echo $i | cut -d/ -f11)
+    if [ "$TGT_" = "$TGT" ]; then
+      if [ "$INI_" = "$INI" ]; then
+        :
+      else
+        INI_=$INI
+        INI_F=$(echo $INI | tr "[:upper:]" "[:lower:]" | sed -e 's/-/_/g' -e 's![^a-z0-9_]!!g')
+      fi
+    else
+       TGT_=$TGT
+       TGT_F=$(echo $TGT | tr "[:upper:]" "[:lower:]" | sed -e 's/-/_/g' -e 's![^a-z0-9_]!!g')
+       INI_=$INI
+       INI_F=$(echo $INI | tr "[:upper:]" "[:lower:]" | sed -e 's/-/_/g' -e 's![^a-z0-9_]!!g')
+       for j in $(echo /sys/kernel/config/target/iscsi/$TGT/tpgt_1/lun/*/statistics/scsi_tgt_port/write_mbytes | LANG=C sort)
+       do
+         LUN_=$(echo $j | cut -d/ -f10)
+         echo ${TGT_F}$LUN_.label $(echo $TGT | cut -d: -f2) \($LUN_\) Write
+         echo ${TGT_F}$LUN_.cdef ${TGT_F}$LUN_,1048576,\*
+         echo ${TGT_F}$LUN_.min 0
+         echo ${TGT_F}$LUN_.type DERIVE
+       done
+    fi
+    echo ${TGT_F}${INI_F}$LUN.label $(echo $TGT | cut -d: -f2) - $(echo $INI | cut -d: -f2) \($LUN\) Write
+    echo ${TGT_F}${INI_F}$LUN.cdef ${TGT_F}${INI_F}$LUN,1048576,\*
+    echo ${TGT_F}${INI_F}$LUN.min 0
+    echo ${TGT_F}${INI_F}$LUN.type DERIVE
+  done
+  exit 0
+fi
+
+TGT_=
+INI_=
+for i in $(echo /sys/kernel/config/target/iscsi/iqn.*/tpgt_1/acls/iqn.*/*/statistics/scsi_auth_intr/write_mbytes | LANG=C sort)
+do
+  TGT=$(echo $i | cut -d/ -f7)
+  INI=$(echo $i | cut -d/ -f10)
+  LUN=$(echo $i | cut -d/ -f11)
+  if [ "$TGT_" = "$TGT" ]; then
+    if [ "$INI_" = "$INI" ]; then
+      :
+    else
+      INI_=$INI
+      INI_F=$(echo $INI | tr "[:upper:]" "[:lower:]" | sed -e 's/-/_/g' -e 's![^a-z0-9_]!!g')
+    fi
+  else
+     TGT_=$TGT
+     TGT_F=$(echo $TGT | tr "[:upper:]" "[:lower:]" | sed -e 's/-/_/g' -e 's![^a-z0-9_]!!g')
+     INI_=$INI
+     INI_F=$(echo $INI | tr "[:upper:]" "[:lower:]" | sed -e 's/-/_/g' -e 's![^a-z0-9_]!!g')
+     for j in $(echo /sys/kernel/config/target/iscsi/$TGT/tpgt_1/lun/*/statistics/scsi_tgt_port/write_mbytes | LANG=C sort)
+     do
+       LUN_=$(echo $j | cut -d/ -f10)
+       echo -n "${TGT_F}$LUN_.value "
+       cat $j
+     done
+  fi
+  echo -n "${TGT_F}${INI_F}$LUN.value "
+  cat $i
+done
+
+exit 0;

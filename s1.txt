@@ -1,21 +1,4 @@
-cat << 'EOF' | sudo tee /usr/local/bin/script_template
-#!/bin/bash
-
-SCRIPT_VER="1.0.0"
-
-ERR_SINGLETON_COUNT=10
-
-print_help()
-{
-  echo "[ Arguments for $SCRIPT_ID ]"
-  echo "$0 [-f] arg1 arg2"
-  echo "    arg1: first info"
-  echo "    arg2: second info"
-  echo ""
-}
-
-#### Common processing Start ####
-
+cat << 'EOF' | sudo tee /usr/local/bin/infra_common
 SCRIPT_ID=$(basename -- "$0")
 #echo $SCRIPT_ID
 
@@ -102,8 +85,29 @@ fi
 $IS_TTY && echo "pid: $(cat /var/run/$SCRIPT_ID/pid) ($SCRIPT_ID)"
 
 . /etc/i_env
+EOF
 
-#### Common processing End ####
+
+
+
+
+cat << 'EOF' | sudo tee /usr/local/bin/script_template
+#!/bin/bash
+
+SCRIPT_VER="1.0.0"
+
+ERR_SINGLETON_COUNT=10
+
+print_help()
+{
+  echo "[ Arguments for $SCRIPT_ID ]"
+  echo "$0 [-f] arg1 arg2"
+  echo "    arg1: first info"
+  echo "    arg2: second info"
+  echo ""
+}
+
+. /usr/local/bin/infra_common
 
 sleep 100
 echo processing.
@@ -119,6 +123,63 @@ sudo rm -f /etc/sysconfig/MaintenanceWorkInProgress
 sudo /usr/local/bin/script_template &
 sudo /usr/local/bin/script_template &
 sudo /usr/local/bin/script_template
+
+
+
+version: 1.0.0 (script_template)
+
+
+
+[ Common Arguments ]
+/usr/local/bin/script_template -h
+    print this. (for manual option)
+/usr/local/bin/script_template -v
+    print version. (for manual option)
+/usr/local/bin/script_template -r
+    remove /var/run/script_template/ directory. (for manual option)
+/usr/local/bin/script_template -f ...
+    force execution with /etc/sysconfig/MaintenanceWorkInProgress file.
+
+[ Arguments for script_template ]
+/usr/local/bin/script_template [-f] arg1 arg2
+    arg1: first info
+    arg2: second info
+
+
+
+/etc/sysconfig/MaintenanceWorkInProgress file exists. Nothing to do.
+
+
+
+pid: 16212 (script_template)
+processing.
+
+
+
+[1] 16224
+pid: 16227 (script_template)
+processing.
+[1]+  I—¹                  sudo /usr/local/bin/script_template
+
+
+
+[2] 16225
+Warning: script_template is running. Nothing to do.
+
+UID          PID    PPID  C STIME TTY          TIME CMD
+root       16227   16224  0 11:37 pts/1    00:00:00 /bin/bash /usr/local/bin/scr
+[2]+  I—¹ 1                sudo /usr/local/bin/script_template
+
+
+
+Warning: script_template is running. Nothing to do.
+
+UID          PID    PPID  C STIME TTY          TIME CMD
+root       16227   16224  0 11:37 pts/1    00:00:00 /bin/bash /usr/local/bin/scr
+
+
+
+
 
 
 

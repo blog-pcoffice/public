@@ -1,0 +1,143 @@
+cat << 'EOF' | sudo tee /usr/local/bin/script_template
+#!/bin/bash
+
+SCRIPT_VER="1.0.0"
+
+ERR_SINGLETON_COUNT=10
+
+print_help()
+{
+  echo "[ Arguments for $SCRIPT_ID ]"
+  echo "$0 [-f] arg1 arg2"
+  echo "    arg1: first info"
+  echo "    arg2: second info"
+  echo ""
+}
+
+#### Common processing Start ####
+
+SCRIPT_ID=$(basename -- "$0")
+#echo $SCRIPT_ID
+
+LOGGER="/usr/bin/logger --tag $SCRIPT_ID --priority local6.err --id=$$"
+FATAL_ERROR="@FATAL_ERROR:"
+#$LOGGER "$FATAL_ERROR test messages."
+
+IS_TTY=false
+tty > /dev/null 2>&1 && IS_TTY=true
+
+if [ "$1" = "-v" ]; then
+  echo "version: $SCRIPT_VER ($SCRIPT_ID)"
+  exit 0
+fi
+
+if [ "$1" = "-h" ]; then
+  echo ""
+  echo "[ Common Arguments ]"
+  echo "$0 -h"
+  echo "    print this. (for manual option)"
+  echo "$0 -v"
+  echo "    print version. (for manual option)"
+  echo "$0 -r"
+  echo "    remove /var/run/$SCRIPT_ID/ directory. (for manual option)"
+  echo "$0 -f ..."
+  echo "    force execution with /etc/sysconfig/MaintenanceWorkInProgress file."
+  echo ""
+  print_help
+  exit 0
+fi
+
+if [ ${EUID:-${UID}} -ne 0 ]; then
+    echo "I am not root." >&2
+    exit 1
+fi
+
+if [ "$1" = "-r" ]; then
+  [ -d /var/run/$SCRIPT_ID ] || exit 0
+  if ps --pid "$(cat /var/run/$SCRIPT_ID/pid 2> /dev/null)" > /dev/null 2>&1; then
+    echo "Warning: $SCRIPT_ID is running. Nothing to do." >&2
+    echo ""
+    ps -f --pid $(cat /var/run/$SCRIPT_ID/pid)
+  else
+    sleep 1
+    if ps --pid "$(cat /var/run/$SCRIPT_ID/pid 2> /dev/null)" > /dev/null 2>&1; then
+      echo "Warning: $SCRIPT_ID is running. Nothing to do." >&2
+      echo ""
+      ps -f --pid $(cat /var/run/$SCRIPT_ID/pid)
+    else
+      rm -rf /var/run/$SCRIPT_ID/
+    fi
+  fi
+  exit 0
+fi
+
+if [ "$1" = "-f" ]; then
+  shift
+else
+  if [ -f /etc/sysconfig/MaintenanceWorkInProgress ]; then
+      $IS_TTY && echo "/etc/sysconfig/MaintenanceWorkInProgress file exists. Nothing to do."
+      exit 0
+  fi
+fi
+
+if mkdir /var/run/$SCRIPT_ID 2> /dev/null; then
+  trap "rm -rf /var/run/$SCRIPT_ID" 0
+  echo $$ > /var/run/$SCRIPT_ID/pid
+  rm -f /var/run/${SCRIPT_ID}_err_singleton
+else
+  if $IS_TTY; then
+    echo "Warning: $SCRIPT_ID is running. Nothing to do." >&2
+    sleep 1
+    echo ""
+    ps -f --pid $(cat /var/run/$SCRIPT_ID/pid)
+  fi
+  touch /var/run/${SCRIPT_ID}_err_singleton
+  i=$(($(cat /var/run/${SCRIPT_ID}_err_singleton)+1))
+  echo $i > /var/run/${SCRIPT_ID}_err_singleton
+  if [ $i -ge $ERR_SINGLETON_COUNT ]; then
+    $LOGGER "$FATAL_ERROR $i consecutive singleton errors. Implement first aid: sudo /usr/local/bin/$SCRIPT_ID -r"
+  fi
+  exit 1
+fi
+$IS_TTY && echo "pid: $(cat /var/run/$SCRIPT_ID/pid) ($SCRIPT_ID)"
+
+. /etc/i_env
+
+#### Common processing End ####
+
+sleep 100
+echo processing.
+EOF
+sudo chmod 755 /usr/local/bin/script_template
+
+sudo /usr/local/bin/script_template -v
+sudo /usr/local/bin/script_template -h
+sudo touch /etc/sysconfig/MaintenanceWorkInProgress
+sudo /usr/local/bin/script_template
+sudo /usr/local/bin/script_template -f test-shift
+sudo rm -f /etc/sysconfig/MaintenanceWorkInProgress
+sudo /usr/local/bin/script_template &
+sudo /usr/local/bin/script_template &
+sudo /usr/local/bin/script_template
+
+
+
+
+
+cat << 'EOF' | sudo tee /usr/local/bin/set_maintenance_mode
+#!/bin/bash
+touch /etc/sysconfig/MaintenanceWorkInProgress
+EOF
+sudo chmod 755 /usr/local/bin/set_maintenance_mode
+
+cat << 'EOF' | sudo tee /usr/local/bin/unset_maintenance_mode
+#!/bin/bash
+rm -f /etc/sysconfig/MaintenanceWorkInProgress
+EOF
+sudo chmod 755 /usr/local/bin/unset_maintenance_mode
+
+cat << 'EOF' | sudo tee /usr/local/bin/is_maintenance_mode
+#!/bin/bash
+[ -f /etc/sysconfig/MaintenanceWorkInProgress ]
+EOF
+sudo chmod 755 /usr/local/bin/is_maintenance_mode

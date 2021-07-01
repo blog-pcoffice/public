@@ -1,0 +1,105 @@
+#sudo cp -a /etc{~,}/aide.conf
+sudo sed -i -e '/^# Next decide what directories\/files you want in the database\.$/,$d' /etc/aide.conf
+cat << 'EOF' | sudo tee -a /etc/aide.conf
+# Audit target Contents Directory/File
+/apl/www/                    NORMAL
+/apl/                        NORMAL
+
+# Audit target Configration Directory/File
+/apl/tomcat/bin/setenv.sh    NORMAL
+/apl/tomcat/conf/            NORMAL
+/apl/tomcat/log4j/conf/      NORMAL
+/etc/                        NORMAL
+
+# Not subject to audit Directory/File
+!/etc/lvm/
+!/etc/mtab
+EOF
+
+cat << 'EOF' | sudo tee /usr/local/bin/aide_check
+#!/bin/bash
+
+SCRIPT_VER="1.0.0"
+
+SCRIPT_PATH=/usr/local/bin
+
+ERR_SINGLETON_COUNT=10
+
+print_help()
+{
+  echo "[ Arguments for $SCRIPT_ID ]"
+  echo "$0 [-f] -a"
+  echo "    auto update database mode"
+  echo "$0 [-f] [-m]"
+  echo "    manual update database mode (default)"
+  echo "$0 [-f] -i"
+  echo "    initialize database"
+  echo ""
+}
+
+. $SCRIPT_PATH/infra_common
+
+if [ $# -ge 2 ]; then
+  echo "Arg: $@ ($#) / too many." >&2
+  exit 1
+fi
+if [ "$1" = "" -o "$1" = "-a" -o "$1" = "-m" -o "$1" = "-i" ]; then
+  :
+else
+  echo "Unknon Arguments: $1" >&2
+  exit 1
+fi
+
+if [ "$1" = "-i" ]; then
+  find /var/lib/aide/ -type f -print0 | xargs -0 /usr/bin/shred -uvz
+  rm -rf /var/lib/aide/
+  mkdir -m 700 /var/lib/aide/
+  find /var/log/aide/ -type f -print0 | xargs -0 /usr/bin/shred -uvz
+  rm -rf /var/log/aide/
+  mkdir -m 700 /var/log/aide/
+fi
+
+if [ ! -r /var/lib/aide/aide.db.gz ]; then
+  /usr/sbin/aide --init
+  rc=$?
+  mv -f /var/lib/aide/aide.db{.new,}.gz
+  exit $rc
+fi
+
+[ -r /var/lib/aide/aide.db.new.gz ] && rm -f /var/lib/aide/aide.db.new.gz
+if /usr/sbin/aide --update; then
+  rm -f /var/lib/aide/aide.db.new.gz
+  exit 0
+else
+  mkdir -p /backup/self/aide/
+  log=/backup/self/aide/aide_$(/usr/bin/date "+%Y%m%d_%H%M%S").log
+  cp -a /var/log/aide/aide.log $log
+  chmod 400 /backup/self/aide/*
+  $LOGGER "$FATAL_ERROR Manipulation was detected. log: sudo cat $log"
+  echo "" >&2
+  echo "" >&2
+  echo "@@@@$FATAL_ERROR Manipulation was detected. @@@@@" >&2
+  echo "" >&2
+  if [ "$1" = "-a" ]; then
+    rm -f /var/lib/aide/aide.db.gz
+    mv -f /var/lib/aide/aide.db{.new,}.gz
+  else
+    rm -f /var/lib/aide/aide.db.new.gz
+  fi
+  exit 1
+fi
+EOF
+sudo chmod 755 /usr/local/bin/aide_check
+
+echo "* * * * * root /usr/local/bin/aide_check -a > /dev/null 2>&1 || :" | sudo tee -a /etc/crontab
+
+※「-a」オプションを「-m」オプションに変更する場合、実行頻度を減らすか、エラーが出続けることになる対応を追加する必要があるかも。
+
+date | sudo tee /etc/now
+sudo /usr/local/bin/aide_check
+sudo rm -f /etc/now
+sudo /usr/local/bin/aide_check
+sudo /usr/local/bin/aide_check -a
+sudo /usr/local/bin/aide_check -a
+
+sudo ls -laR /var/lib/aide/ /var/log/aide/

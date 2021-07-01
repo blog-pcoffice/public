@@ -1,0 +1,103 @@
+cat << 'EOF' | sudo tee /usr/lib/dracut/modules.d/46sshd/tty_ask_passphrase
+#!/bin/bash
+
+SCRIPT_VER="1.0.0"
+
+ERR_SINGLETON_COUNT=10
+
+SCRIPT_PATH=/root
+
+MAINTENANCE_FILE=/root/MaintenanceWorkInProgress
+
+if [ $# -ge 1 ]; then
+  $IS_TTY && echo "Arg: $@ ($#) / too many." >&2
+  exit 1
+fi
+
+. $SCRIPT_PATH/infra_common
+
+if [ ! -r /root/.pp ]; then
+  if $IS_TTY; then
+    read -sp "luks Passphrase: " pass
+    echo -ne "$pass" > /root/.pp
+  else
+    echo "Error: /root/.pp is not exists." >&2
+    exit 1
+  fi
+fi
+pass=$(cat /root/.pp)
+rm -f /root/.pp
+/root/to_console $(echo -ne "$pass\r")
+echo
+/bin/sleep 3
+/bin/cat /dev/vcs1
+EOF
+sudo chmod 755 /usr/lib/dracut/modules.d/46sshd/tty_ask_passphrase
+
+cat << 'EOF_' | sudo tee /usr/lib/dracut/modules.d/46sshd/module-setup.sh
+#!/bin/bash
+check() {
+    return 0
+}
+depends() {
+    return 0
+}
+install() {
+    [ -r /etc/ssh/dracut_ssh_host_ecdsa_key ] || ssh-keygen -N '' -f /etc/ssh/dracut_ssh_host_ecdsa_key -t ecdsa -b 256
+    [ -r /etc/ssh/dracut_ssh_host_ed25519_key ] || ssh-keygen -N '' -f /etc/ssh/dracut_ssh_host_ed25519_key -t ed25519 -b 256 -a 256
+    [ -r /etc/ssh/dracut_ssh_host_rsa_key ] || ssh-keygen -N '' -f /etc/ssh/dracut_ssh_host_rsa_key -t rsa -b 3072
+    inst_simple /etc/ssh/dracut_ssh_host_ecdsa_key.pub /etc/ssh/ssh_host_ecdsa_key.pub
+    inst_simple /etc/ssh/dracut_ssh_host_ed25519_key.pub /etc/ssh/ssh_host_ed25519_key.pub
+    inst_simple /etc/ssh/dracut_ssh_host_rsa_key.pub /etc/ssh/ssh_host_rsa_key.pub
+    /usr/bin/install -m 600 /etc/ssh/dracut_ssh_host_ecdsa_key "$initdir/etc/ssh/ssh_host_ecdsa_key"
+    /usr/bin/install -m 600 /etc/ssh/dracut_ssh_host_ed25519_key "$initdir/etc/ssh/ssh_host_ed25519_key"
+    /usr/bin/install -m 600 /etc/ssh/dracut_ssh_host_rsa_key "$initdir/etc/ssh/ssh_host_rsa_key"
+
+    mkdir -p -m 0700 "$initdir/root"
+    mkdir -p -m 0700 "$initdir/root/.ssh"
+    /usr/bin/install -m 600 /root/.ssh/dracut_authorized_keys "$initdir/root/.ssh/authorized_keys"
+    inst_simple "${moddir}/mode" /root/.mode
+    inst_simple "${moddir}/profile" /root/.profile
+    inst_simple "${moddir}/bash_history" /root/.bash_history
+    chmod 600 "$initdir/root/.bash_history"
+
+    echo 'sshd:x:74:74:Privilege-separated SSH:/var/empty/sshd:/sbin/nologin' >> "$initdir/etc/passwd"
+    echo 'sshd:x:74:' >> "$initdir/etc/group"
+
+    mkdir -p -m 0755 "$initdir/var/empty/sshd"
+    mkdir -p -m 0755 "$initdir/var/log"
+    touch "$initdir/var/log/lastlog"
+    inst_binary /usr/sbin/sshd
+    inst_binary /usr/libexec/openssh/sftp-server
+    inst_multiple -o /etc/sysconfig/sshd /etc/sysconfig/ssh /etc/sysconfig/dracut-sshd
+    inst_simple "${moddir}/sshd_config" /etc/ssh/sshd_config
+    inst_multiple -o /etc/crypto-policies/back-ends/opensshserver.config
+    inst_simple "${moddir}/sshd.service" "$systemdsystemunitdir/sshd.service"
+    systemctl -q --root "$initdir" enable sshd
+    inst_simple "${moddir}/offlinebackup" /root/offlinebackup
+    inst_simple "${moddir}/tty_ask_passphrase" /root/tty_ask_passphrase
+    inst_simple "${moddir}/to_console" /root/to_console
+    inst_binary /usr/bin/touch
+    inst_binary /usr/bin/scp
+    inst_binary /usr/sbin/ss
+    inst_binary /usr/sbin/cryptsetup
+    inst_binary /usr/bin/tar
+    inst_binary /usr/bin/gzip
+    inst_binary /usr/bin/date
+    inst_binary /usr/bin/pkill
+    inst_binary /usr/bin/dd
+    inst_binary /usr/bin/tty
+    inst_binary /usr/bin/basename
+    inst_binary /usr/bin/chmod
+    inst_binary /usr/bin/tee
+    inst_binary /usr/sbin/fdisk
+    inst_binary /usr/sbin/sfdisk
+    inst_binary /usr/sbin/mkswap
+    inst_binary /usr/sbin/swapon
+    inst_binary /usr/sbin/mkfs.xfs
+    inst_binary /usr/sbin/xfs_admin
+    inst_simple /usr/local/bin/infra_common /root/infra_common
+    return 0
+}
+EOF_
+sudo chmod 755 /usr/lib/dracut/modules.d/46sshd/module-setup.sh

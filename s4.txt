@@ -40,8 +40,8 @@ if [ ! -r /root/.ssh/dracut ]; then
   exit 1
 fi
 
-if /usr/bin/timeout 10 scp -i /root/.ssh/dracut -P 222 /root/.pp root@$i_PEER_BOND0_IP:/root/ > /dev/null 2>&1; then
-  ssh -i /root/.ssh/dracut -p 222 root@$i_PEER_BOND0_IP /root/tty_ask_passphrase
+if /usr/bin/timeout 10 scp -o "StrictHostKeyChecking=no" -o "UserKnownHostsFile=/dev/null" -i /root/.ssh/dracut -P 222 /root/.pp root@$i_PEER_BOND0_IP:/root/ > /dev/null 2>&1; then
+  ssh -o "StrictHostKeyChecking=no" -o "UserKnownHostsFile=/dev/null" -i /root/.ssh/dracut -p 222 root@$i_PEER_BOND0_IP /root/tty_ask_passphrase
   exit
 fi
 :

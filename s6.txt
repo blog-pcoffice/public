@@ -1,0 +1,60 @@
+cat << 'EOF' | sudo tee /etc/sysconfig/i_copy_auth_info_to_peer
+/home/admin/.google_authenticator
+/etc/shadow
+EOF
+
+for i in $(seq 1 20)
+do
+  j=$(printf "user%03d" $i)
+  echo "/home/$j/.google_authenticator" | sudo tee -a /etc/sysconfig/i_copy_auth_info_to_peer
+  echo "/home/$j/.ssh/authorized_keys" | sudo tee -a /etc/sysconfig/i_copy_auth_info_to_peer
+done
+
+for i in $(seq 1 20)
+do
+  j=$(printf "infra%03d" $i)
+  echo "/home/$j/.google_authenticator" | sudo tee -a /etc/sysconfig/i_copy_auth_info_to_peer
+  echo "/home/$j/.ssh/authorized_keys" | sudo tee -a /etc/sysconfig/i_copy_auth_info_to_peer
+done
+
+for i in $(seq 1 100)
+do
+  j=$(printf "apl%03d" $i)
+  echo "/home/$j/.google_authenticator" | sudo tee -a /etc/sysconfig/i_copy_auth_info_to_peer
+  echo "/home/$j/.ssh/authorized_keys" | sudo tee -a /etc/sysconfig/i_copy_auth_info_to_peer
+done
+
+cat << 'EOF' | sudo tee /usr/local/bin/i_copy_auth_info_to_peer.bash
+#!/bin/bash
+
+SCRIPT_VER="1.0.0"
+
+ERR_SINGLETON_COUNT=10
+
+print_help()
+{
+  echo "[ Arguments for $SCRIPT_ID ]"
+  echo "$0 [-f] arg1 arg2"
+  echo "    arg1: first info"
+  echo "    arg2: second info"
+  echo ""
+}
+
+. /usr/local/bin/i_common.include
+
+if [ $# -ge 1 ]; then
+  $IS_TTY && echo "Arg: $@ ($#) / too many." >&2
+  exit 1
+fi
+
+if [ $i_CLUSTER_INDEX -ne 1 ]; then
+  $IS_TTY && echo "Cluster index: $i_CLUSTER_INDEX. Nothing to do." >&2
+  exit 0
+fi
+
+rsync -a -e "ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i /root/.ssh/peer" --files-from=/etc/sysconfig/i_copy_auth_info_to_peer / root@$i_peer:/
+:
+EOF
+sudo chmod 755 /usr/local/bin/i_copy_auth_info_to_peer.bash
+
+echo "* * * * * root /usr/local/bin/i_copy_auth_info_to_peer.bash > /dev/null 2>&1 || :" | sudo tee -a /etc/crontab

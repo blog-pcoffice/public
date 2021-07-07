@@ -1,0 +1,51 @@
+cat << 'EOF' | sudo tee /usr/local/bin/i_set_no_send_luks_pp_mode.bash
+#!/bin/bash
+touch /etc/sysconfig/NoSendLuksPP
+EOF
+sudo chmod 755 /usr/local/bin/i_set_no_send_luks_pp_mode.bash
+
+cat << 'EOF' | sudo tee /usr/local/bin/i_unset_no_send_luks_pp_mode.bash
+#!/bin/bash
+rm -f /etc/sysconfig/NoSendLuksPP
+EOF
+sudo chmod 755 /usr/local/bin/i_unset_no_send_luks_pp_mode.bash
+
+cat << 'EOF' | sudo tee /usr/local/bin/i_is_no_send_luks_pp_mode.bash
+#!/bin/bash
+[ -f /etc/sysconfig/NoSendLuksPP ]
+EOF
+sudo chmod 755 /usr/local/bin/i_is_no_send_luks_pp_mode.bash
+
+cat << 'EOF' | sudo tee /usr/local/bin/i_send_luks_pp.bash
+#!/bin/bash
+
+SCRIPT_VER="1.0.0"
+
+ERR_SINGLETON_COUNT=10
+
+. /usr/local/bin/i_common.include
+
+if [ $# -ge 1 ]; then
+  $IS_TTY && echo "Arg: $@ ($#) / too many." >&2
+  exit 1
+fi
+
+if [ -f /etc/sysconfig/NoSendLuksPP ]; then
+  $IS_TTY && echo "/etc/sysconfig/NoSendLuksPP file exists. Nothing to do."
+  exit 0
+fi
+
+if [ ! -r /root/.ssh/dracut ]; then
+  $IS_TTY && echo "/root/.ssh/dracut file is missing." >&2
+  exit 1
+fi
+
+if /usr/bin/timeout 10 scp -i /root/.ssh/dracut -P 222 /root/.pp root@$i_PEER_BOND0_IP:/root/ > /dev/null 2>&1; then
+  ssh -i /root/.ssh/dracut -p 222 root@$i_PEER_BOND0_IP /root/i_tty_passphrase.bash
+  exit
+fi
+:
+EOF
+sudo chmod 755 /usr/local/bin/i_send_luks_pp.bash
+
+echo "* * * * * root /usr/local/bin/i_send_luks_pp.bash -f > /dev/null 2>&1 || :" | sudo tee -a /etc/crontab

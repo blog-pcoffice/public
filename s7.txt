@@ -1,0 +1,34 @@
+cat << 'EOF' | sudo tee /usr/local/bin/i_copy_cron_settings_for_apl.bash || $Error :
+#!/bin/bash
+
+SCRIPT_VER="1.0.0"
+
+ERR_SINGLETON_COUNT=10
+
+print_help()
+{
+  echo "[ Arguments for $SCRIPT_ID ]"
+  echo "$0 [-f] arg1 arg2"
+  echo "    arg1: first info"
+  echo "    arg2: second info"
+  echo ""
+}
+
+. /usr/local/bin/i_common.include
+
+if [ $# -ge 1 ]; then
+  $IS_TTY && echo "Arg: $@ ($#) / too many." >&2
+  exit 1
+fi
+
+if [ -r /apl/cron/apl ]; then
+  cp -a /apl/cron/apl /var/run/$SCRIPT_ID/
+  chmod 600 /var/run/$SCRIPT_ID/apl
+  chown apl:apl /var/run/$SCRIPT_ID/apl
+  cp -a /var/run/$SCRIPT_ID/apl /var/spool/cron/apl
+fi
+:
+EOF
+sudo chmod 755 /usr/local/bin/i_copy_cron_settings_for_apl.bash || $Error :
+
+echo "* * * * * root /usr/local/bin/i_copy_cron_settings_for_apl.bash > /dev/null 2>&1 || :" | sudo tee -a /etc/crontab || $Error :

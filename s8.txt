@@ -1,0 +1,144 @@
+cat << 'EOF' | tee /usr/lib/dracut/modules.d/46sshd/i_set_maintenance_mode.bash || $Error :
+#!/bin/bash
+touch /root/MaintenanceWorkInProgress
+EOF
+chmod 755 /usr/lib/dracut/modules.d/46sshd/i_set_maintenance_mode.bash || $Error :
+
+
+
+
+
+cat << 'EOF' | tee /usr/lib/dracut/modules.d/46sshd/i_offlinebackup.bash || $Error :
+#!/bin/bash
+
+SCRIPT_VER="1.0.0"
+ERR_SINGLETON_COUNT=10
+SCRIPT_PATH=/root
+
+. $SCRIPT_PATH/i_common.include
+
+if [ $# -ge 1 ]; then
+  $IS_TTY && echo "Arg: $@ ($#) / too many." >&2
+  exit 1
+fi
+
+touch /root/MaintenanceWorkInProgress
+if [ ! -r /root/.pp ]; then
+  read -sp "luks Passphrase: " pass
+  echo -ne "$pass" > /root/.pp
+fi
+
+cleanup() {
+  rm -f /root/.pp
+  cd
+  umount /sysroot/backup
+  umount /sysroot/boot
+  umount /sysroot/
+  lvm vgchange -a n vg0
+  cryptsetup luksClose luks-root
+  cryptsetup luksClose luks-backup
+  [ "$1" -ne 0 ] && exit $1
+  return 0
+}
+
+cryptsetup luksOpen --key-file /root/.pp /dev/disk/by-partuuid/00000002-01 luks-backup || cleanup 101
+cryptsetup luksOpen --key-file /root/.pp /dev/disk/by-partuuid/00000001-02 luks-root || cleanup 102
+rm -f /root/.pp
+lvm vgchange -a y vg0
+udevadm settle
+[ -e /dev/mapper/vg0-root ] || cleanup 103
+
+mount -t xfs /dev/mapper/vg0-root /sysroot || cleanup 104
+mount -t xfs /dev/disk/by-label/boot /sysroot/boot || cleanup 105
+mount -t xfs /dev/mapper/luks-backup /sysroot/backup || cleanup 106
+
+cd /sysroot
+MaintenanceWorkInProgress=0
+[ -e etc/sysconfig/MaintenanceWorkInProgress ] && MaintenanceWorkInProgress=1
+touch etc/sysconfig/MaintenanceWorkInProgress 
+PREFIX=dev_
+[ "$i_ENV" ] && PREFIX=${i_ENV}_
+mkdir -p backup/self/offlinebackup/
+tar czf backup/self/offlinebackup/${PREFIX}os.tgz_$(date "+%Y%m%d_%H%M%S")~ $(ls -a | grep -v '^\.$' | grep -v '^\.\.$' | grep -v '^backup$') || cleanup 107
+[ $MaintenanceWorkInProgress -eq 0 ] && rm -f etc/sysconfig/MaintenanceWorkInProgress
+
+cleanup 0
+
+echo 'reboot now!!'
+sleep 3
+echo 1 > /proc/sys/kernel/sysrq; echo b > /proc/sysrq-trigger
+EOF
+chmod 755 /usr/lib/dracut/modules.d/46sshd/i_offlinebackup.bash || $Error :
+
+
+
+
+
+cat << 'EOF_' | tee /usr/lib/dracut/modules.d/46sshd/module-setup.sh || $Error :
+#!/bin/bash
+check() {
+    return 0
+}
+depends() {
+    return 0
+}
+install() {
+    [ -r /etc/ssh/dracut_ssh_host_ecdsa_key ] || ssh-keygen -N '' -f /etc/ssh/dracut_ssh_host_ecdsa_key -t ecdsa -b 256
+    [ -r /etc/ssh/dracut_ssh_host_ed25519_key ] || ssh-keygen -N '' -f /etc/ssh/dracut_ssh_host_ed25519_key -t ed25519 -b 256 -a 256
+    [ -r /etc/ssh/dracut_ssh_host_rsa_key ] || ssh-keygen -N '' -f /etc/ssh/dracut_ssh_host_rsa_key -t rsa -b 3072
+    inst_simple /etc/ssh/dracut_ssh_host_ecdsa_key.pub /etc/ssh/ssh_host_ecdsa_key.pub
+    inst_simple /etc/ssh/dracut_ssh_host_ed25519_key.pub /etc/ssh/ssh_host_ed25519_key.pub
+    inst_simple /etc/ssh/dracut_ssh_host_rsa_key.pub /etc/ssh/ssh_host_rsa_key.pub
+    /usr/bin/install -m 600 /etc/ssh/dracut_ssh_host_ecdsa_key "$initdir/etc/ssh/ssh_host_ecdsa_key"
+    /usr/bin/install -m 600 /etc/ssh/dracut_ssh_host_ed25519_key "$initdir/etc/ssh/ssh_host_ed25519_key"
+    /usr/bin/install -m 600 /etc/ssh/dracut_ssh_host_rsa_key "$initdir/etc/ssh/ssh_host_rsa_key"
+
+    mkdir -p -m 0700 "$initdir/root"
+    mkdir -p -m 0700 "$initdir/root/.ssh"
+    /usr/bin/install -m 600 /root/.ssh/dracut_authorized_keys "$initdir/root/.ssh/authorized_keys"
+    inst_simple "${moddir}/mode" /root/.mode
+    inst_simple "${moddir}/profile" /root/.profile
+    inst_simple "${moddir}/bash_history" /root/.bash_history
+    chmod 600 "$initdir/root/.bash_history"
+
+    echo 'sshd:x:74:74:Privilege-separated SSH:/var/empty/sshd:/sbin/nologin' >> "$initdir/etc/passwd"
+    echo 'sshd:x:74:' >> "$initdir/etc/group"
+
+    mkdir -p -m 0755 "$initdir/var/empty/sshd"
+    mkdir -p -m 0755 "$initdir/var/log"
+    touch "$initdir/var/log/lastlog"
+    inst_binary /usr/sbin/sshd
+    inst_binary /usr/libexec/openssh/sftp-server
+    inst_multiple -o /etc/sysconfig/sshd /etc/sysconfig/ssh /etc/sysconfig/dracut-sshd
+    inst_simple "${moddir}/sshd_config" /etc/ssh/sshd_config
+    inst_multiple -o /etc/crypto-policies/back-ends/opensshserver.config
+    inst_simple "${moddir}/sshd.service" "$systemdsystemunitdir/sshd.service"
+    systemctl -q --root "$initdir" enable sshd
+    inst_simple /usr/local/bin/i_common.include /root/i_common.include
+    inst_simple "${moddir}/i_set_maintenance_mode.bash" /root/i_set_maintenance_mode.bash
+    inst_simple "${moddir}/i_offlinebackup.bash" /root/i_offlinebackup.bash
+    inst_simple "${moddir}/i_tty_passphrase.bash" /root/i_tty_passphrase.bash
+    inst_simple "${moddir}/to_console" /root/to_console
+    inst_binary /usr/bin/touch
+    inst_binary /usr/bin/scp
+    inst_binary /usr/sbin/ss
+    inst_binary /usr/sbin/cryptsetup
+    inst_binary /usr/bin/tar
+    inst_binary /usr/bin/gzip
+    inst_binary /usr/bin/date
+    inst_binary /usr/bin/pkill
+    inst_binary /usr/bin/dd
+    inst_binary /usr/bin/tty
+    inst_binary /usr/bin/basename
+    inst_binary /usr/bin/chmod
+    inst_binary /usr/bin/tee
+    inst_binary /usr/sbin/fdisk
+    inst_binary /usr/sbin/sfdisk
+    inst_binary /usr/sbin/mkswap
+    inst_binary /usr/sbin/swapon
+    inst_binary /usr/sbin/mkfs.xfs
+    inst_binary /usr/sbin/xfs_admin
+    return 0
+}
+EOF_
+chmod 755 /usr/lib/dracut/modules.d/46sshd/module-setup.sh || $Error :

@@ -1,0 +1,136 @@
+cat << 'EOF' | tee /usr/local/bin/i_onlinebackup.bash || $Error :
+#!/bin/bash
+
+SCRIPT_VER="1.0.0"
+ERR_SINGLETON_COUNT=10
+print_help()
+{
+  echo "[ Arguments for $SCRIPT_ID ]"
+  echo "$0 [-f] -c"
+  echo "    complete backup (full backup)"
+  echo "$0 [-f] [-d]"
+  echo "    differential backups (default)"
+  echo "$0 [-f] -i"
+  echo "    initialize snpapshot"
+  echo ""
+}
+. /usr/local/bin/i_common.include
+
+if [ $# -ge 2 ]; then
+  echo "Arg: $@ ($#) / too many." >&2
+  exit 1
+fi
+if [ "$1" = "" -o "$1" = "-c" -o "$1" = "-d" -o "$1" = "-i" ]; then
+ :
+else
+  echo "Unknon Arguments: $1" >&2
+  exit 1
+fi
+
+if [ "$1" = "-i" ]; then
+  echo ""
+  echo "fuser -mv /backup/mntsnap"
+  echo ""
+  fuser -mv /backup/mntsnap
+  echo ""
+  echo "lsof +D /backup/mntsnap"
+  echo ""
+  lsof +D /backup/mntsnap
+  echo ""
+  umount -f /backup/mntsnap
+  umount -l /backup/mntsnap
+  lvm lvremove --force /dev/vg0/snap
+  exit 0
+fi
+if [ "$1" = "-c" ]; then
+  rm -f /backup/self/onlinebackup/$i_ENV-last
+fi
+
+mkdir -p /backup/mntsnap/
+mkdir -p /backup/self/onlinebackup/
+
+now=${i_ENV}_$(date "+%Y%m%d_%H%M")
+[ -r /backup/self/onlinebackup/$i_ENV-last ] || now=$now-full
+if ! err=$(lvm lvcreate --extents 100%FREE --snapshot --name snap /dev/vg0/root 2>&1); then
+  echo "$err  Implement first aid: sudo $SCRIPT_PATH/$SCRIPT_ID -i" >&2
+  $LOGGER "$FATAL_ERROR 2: $err  Implement first aid: sudo $SCRIPT_PATH/$SCRIPT_ID -i"
+  exit 2
+fi
+if ! err=$(xfs_repair -L /dev/vg0/snap 2>&1); then
+  echo "$err  Implement first aid: sudo $SCRIPT_PATH/$SCRIPT_ID -i" >&2
+  $LOGGER "$FATAL_ERROR 4: $err  Implement first aid: sudo $SCRIPT_PATH/$SCRIPT_ID -i"
+  if ! err=$(lvm lvremove --force /dev/vg0/snap 2>&1); then
+    echo "$err  Implement first aid: sudo $SCRIPT_PATH/$SCRIPT_ID -i" >&2
+    $LOGGER "$FATAL_ERROR 6: $err  Implement first aid: sudo $SCRIPT_PATH/$SCRIPT_ID -i"
+  fi
+  exit 4
+fi
+if ! err=$(xfs_admin -U generate /dev/vg0/snap 2>&1); then
+  echo "$err  Implement first aid: sudo $SCRIPT_PATH/$SCRIPT_ID -i" >&2
+  $LOGGER "$FATAL_ERROR 8: $err  Implement first aid: sudo $SCRIPT_PATH/$SCRIPT_ID -i"
+  if ! err=$(lvm lvremove --force /dev/vg0/snap 2>&1); then
+    echo "$err  Implement first aid: sudo $SCRIPT_PATH/$SCRIPT_ID -i" >&2
+    $LOGGER "$FATAL_ERROR 10: $err  Implement first aid: sudo $SCRIPT_PATH/$SCRIPT_ID -i"
+  fi
+  exit 8
+fi
+if ! err=$(mount -t xfs -o ro /dev/vg0/snap /backup/mntsnap 2>&1); then
+  echo "$err  Implement first aid: sudo $SCRIPT_PATH/$SCRIPT_ID -i" >&2
+  $LOGGER "$FATAL_ERROR 12: $err  Implement first aid: sudo $SCRIPT_PATH/$SCRIPT_ID -i"
+  if ! err=$(lvm lvremove --force /dev/vg0/snap 2>&1); then
+    echo "$err  Implement first aid: sudo $SCRIPT_PATH/$SCRIPT_ID -i" >&2
+    $LOGGER "$FATAL_ERROR 14: $err  Implement first aid: sudo $SCRIPT_PATH/$SCRIPT_ID -i"
+  fi
+  exit 12
+fi
+if ! err=$(mkdir /backup/self/onlinebackup/$now 2>&1); then
+  echo "$err  Implement first aid: Wait a minute and re-run it." >&2
+  $LOGGER "$FATAL_ERROR 16: $err  Implement first aid: sudo $SCRIPT_PATH/$SCRIPT_ID -i"
+  if ! err=$(umount -f /backup/mntsnap 2>&1 || umount -l /backup/mntsnap 2>&1); then
+    echo "$err  Implement first aid: sudo $SCRIPT_PATH/$SCRIPT_ID -i" >&2
+    $LOGGER "$FATAL_ERROR 18: $err  Implement first aid: sudo $SCRIPT_PATH/$SCRIPT_ID -i"
+  fi
+  if ! err=$(lvm lvremove --force /dev/vg0/snap 2>&1); then
+    echo "$err  Implement first aid: sudo $SCRIPT_PATH/$SCRIPT_ID -i" >&2
+    $LOGGER "$FATAL_ERROR 20: $err  Implement first aid: sudo $SCRIPT_PATH/$SCRIPT_ID -i"
+  fi
+  exit 16
+fi
+
+if [ -r /backup/self/onlinebackup/$i_ENV-last ]; then
+  last=$(cat /backup/self/onlinebackup/$i_ENV-last)
+  if ! err=$(rsync -avh --link-dest=/backup/self/onlinebackup/$last/ /backup/mntsnap/ /backup/self/onlinebackup/$now/ 2>&1); then
+    echo "$err  Implement first aid: sudo $SCRIPT_PATH/$SCRIPT_ID -i" >&2
+    $LOGGER "$FATAL_ERROR 22: $err  Implement first aid: sudo $SCRIPT_PATH/$SCRIPT_ID -i"
+  fi
+  if ! err=$(rsync -avh --link-dest=/backup/self/onlinebackup/$last/boot/ /boot/ /backup/self/onlinebackup/$now/boot/ 2>&1); then
+    echo "$err  Implement first aid: sudo $SCRIPT_PATH/$SCRIPT_ID -i" >&2
+    $LOGGER "$FATAL_ERROR 24: $err  Implement first aid: sudo $SCRIPT_PATH/$SCRIPT_ID -i"
+  fi
+else
+  if ! err=$(rsync -avh /backup/mntsnap/ /backup/self/onlinebackup/$now/ 2>&1); then
+    echo "$err  Implement first aid: sudo $SCRIPT_PATH/$SCRIPT_ID -i" >&2
+    $LOGGER "$FATAL_ERROR 26: $err  Implement first aid: sudo $SCRIPT_PATH/$SCRIPT_ID -i"
+  fi
+  if ! err=$(rsync -avh /boot/ /backup/self/onlinebackup/$now/boot/ 2>&1); then
+    echo "$err  Implement first aid: sudo $SCRIPT_PATH/$SCRIPT_ID -i" >&2
+    $LOGGER "$FATAL_ERROR 28: $err  Implement first aid: sudo $SCRIPT_PATH/$SCRIPT_ID -i"
+  fi
+fi
+if ! echo $now > /backup/self/onlinebackup/$i_ENV-last 2>&1; then
+  echo "Failed to update the latest backup information." >&2
+  $LOGGER "$FATAL_ERROR 30: -bash: /backup/self/onlinebackup/$i_ENV-last: Failed to update the latest backup information."
+fi
+if ! err=$(umount -f /backup/mntsnap 2>&1 || umount -l /backup/mntsnap 2>&1); then
+  echo "$err  Implement first aid: sudo $SCRIPT_PATH/$SCRIPT_ID -i" >&2
+  $LOGGER "$FATAL_ERROR 32: $err  Implement first aid: sudo $SCRIPT_PATH/$SCRIPT_ID -i"
+fi
+if ! err=$(lvm lvremove --force /dev/vg0/snap 2>&1); then
+  echo "$err  Implement first aid: sudo $SCRIPT_PATH/$SCRIPT_ID -i" >&2
+  $LOGGER "$FATAL_ERROR 34: $err  Implement first aid: sudo $SCRIPT_PATH/$SCRIPT_ID -i"
+fi
+touch /backup/self/onlinebackup/$now/etc/sysconfig/MaintenanceWorkInProgress
+echo /backup/self/onlinebackup/$now/
+exit 0
+EOF
+chmod 755 /usr/local/bin/i_onlinebackup.bash || $Error :

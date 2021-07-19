@@ -1,0 +1,47 @@
+cat << 'EOF' | tee /root/i_init_log_dir.bash || $Error :
+#!/bin/bash
+
+SCRIPT_VER="1.0.0"
+ERR_SINGLETON_COUNT=10
+SCRIPT_PATH=/root
+MAINTENANCE_FILE=/root/MaintenanceWorkInProgress
+
+if [ $# -ge 1 ]; then
+  $IS_TTY && echo "Arg: $@ ($#) / too many." >&2
+  exit 1
+fi
+
+. $SCRIPT_PATH/i_common.include
+
+for i in $(find /var/log/ -type f) $(find /var/account/ -type f)
+do
+  shred -uvz $i
+done
+
+rm -rf /var/log /var/account
+
+mkdir -p /var/log/{aide,audit,chrony,cluster,httpd,iptraf-ng,pacemaker/bundles,pcsd,private,samba/old,tomcat} /var/log/pcp/{pmcd,pmie,pmlogger,pmproxy} /var/account
+
+chown -R chrony:input /var/log/chrony
+chown -R hacluster:haclient /var/log/pacemaker
+chown -R apache:apl /var/log/httpd
+chown -R pcp:pcp /var/log/pcp
+chown -R apache:apl /var/log/tomcat
+
+chmod -R 700 /var/log/{aide,audit,pcsd,private,samba}
+chmod -R 775 /var/log/{httpd,pacemaker,pcp,tomcat}
+
+touch /var/log/{btmp,wtmp,lastlog,secure,dnf.librepo.log,dnf.log,dnf.rpm.log,hawkey.log,firewalld} /var/log/httpd/{access_log,error_log} /var/account/pacct
+
+chgrp utmp /var/log/{btmp,wtmp,lastlog}
+chgrp apl /var/log/httpd/{access_log,error_log}
+
+chmod 0600 /var/log/{secure,dnf.librepo.log,dnf.log,dnf.rpm.log,hawkey.log,firewalld} /var/account/pacct
+chmod 0660 /var/log/btmp
+chmod 0664 /var/log/{wtmp,lastlog} /var/log/httpd/{access_log,error_log}
+
+rm -rf /var/tmp /tmp
+mkdir /var/tmp /tmp
+chmod 1777 /var/tmp /tmp
+EOF
+chmod 755 /root/i_init_log_dir.bash || $Error :

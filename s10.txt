@@ -1,0 +1,44 @@
+[éQè∆]
+https://access.redhat.com/solutions/661603
+
+
+
+
+
+sed -i -e 's/^max_log_file_action .*$/max_log_file_action = ignore/' /etc/audit/auditd.conf
+cat << 'EOF' | tee /usr/local/bin/i_audit_log_rotate.bash || $Error :
+#!/bin/bash
+
+SCRIPT_VER="1.0.0"
+ERR_SINGLETON_COUNT=10
+
+if [ $# -ge 1 ]; then
+  $IS_TTY && echo "Arg: $@ ($#) / too many." >&2
+  exit 1
+fi
+
+. /usr/local/bin/i_common.include
+
+mkdir -p /backup/self/log/auditd/
+
+if [ -f /run/auditd.pid ]; then
+  kill -USR1 $(cat /run/auditd.pid)
+else
+  $LOGGER "$FATAL_ERROR No PID file of auditd exists. Implement first aid: sudo systemctl stop auditd;sudo systemctl start auditd"
+  exit 1
+fi
+
+if [ -f /var/log/audit/audit.log.1 ]; then
+  mv /var/log/audit/audit.log.1 /backup/self/log/auditd/audit.log-$(date +%Y%m%d%H)
+else
+  $LOGGER "$FATAL_ERROR failed to logrotate. Implement first aid: sudo systemctl stop auditd;sudo systemctl start auditd"
+  exit 1
+fi
+EOF
+chmod 755 /usr/local/bin/i_audit_log_rotate.bash || $Error :
+
+
+
+
+
+echo "0 0 * * * root /usr/local/bin/i_audit_log_rotate.bash -f > /dev/null 2>&1 || :" | sudo tee -a /etc/crontab || $Error :

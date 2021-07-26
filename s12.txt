@@ -1,0 +1,28 @@
+cat << 'EOF' | tee /usr/local/bin/i_delete_pgarch.bash || $Error :
+#!/bin/bash
+
+SCRIPT_VER="1.0.0"
+ERR_SINGLETON_COUNT=10
+. /usr/local/bin/i_common.include
+
+if [ $# -ge 1 ]; then
+  $IS_TTY && echo "Arg: $@ ($#) / too many." >&2
+  exit 1
+fi
+
+cd /tmp
+rm -rf /tmp/pg_bk/
+sudo -u postgres mkdir /tmp/pg_bk/
+if sudo -u postgres pg_basebackup -h localhost -U repuser -D /tmp/pg_bk/ -X stream -P; then
+  /usr/local/bin/pg-rex_archivefile_delete -r /tmp/pg_bk/
+fi
+rm -rf /tmp/pg_bk/
+:
+EOF
+chmod 755 /usr/local/bin/i_delete_pgarch.bash || $Error :
+
+
+
+
+
+echo "20 * * * * root /usr/local/bin/i_delete_pgarch.bash > /dev/null 2>&1 || :" | sudo tee -a /etc/crontab || $Error :

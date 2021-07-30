@@ -1,0 +1,28 @@
+cat << 'EOF' | tee /usr/local/bin/i_pgdump.bash || $Error :
+#!/bin/bash
+
+SCRIPT_VER="1.0.0"
+ERR_SINGLETON_COUNT=10
+. /usr/local/bin/i_common.include
+
+if [ $# -ge 1 ]; then
+  $IS_TTY && echo "Arg: $@ ($#) / too many." >&2
+  exit 1
+fi
+
+cd /tmp
+mkdir -p /backup/self/pgdump
+chown postgres:postgres /backup/self/pgdump
+chmod 700 /backup/self/pgdump
+if ip addr show | grep -q "inet $i_DB/"; then
+  sudo -u postgres pg_dumpall -f /backup/self/pgdump/$i_ENV-pgdump_$(date "+%Y%m%d_%H%M%S").sql -U postgres || $LOGGER "$FATAL_ERROR failed to pg_dumpall."
+fi
+:
+EOF
+chmod 755 /usr/local/bin/i_pgdump.bash || $Error :
+
+
+
+
+
+echo "40 * * * * root /usr/local/bin/i_pgdump.bash > /dev/null 2>&1 || :" | sudo tee -a /etc/crontab || $Error :

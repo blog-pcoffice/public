@@ -1,0 +1,798 @@
+# ネットワーク設定スクリプト配置
+cat << 'EOF_' | tee /root/i_set_network.bash || $Error :
+#!/bin/bash
+
+SCRIPT_VER="1.0.0"
+ERR_SINGLETON_COUNT=10
+SCRIPT_PATH=/root
+MAINTENANCE_FILE=/root/MaintenanceWorkInProgress
+
+if [ $# -ge 1 ]; then
+  $IS_TTY && echo "Arg: $@ ($#) / too many." >&2
+  exit 1
+fi
+
+. $SCRIPT_PATH/i_common.include
+
+BOND0_BONDING_OPTS="resend_igmp=1 updelay=0 use_carrier=1 miimon=100 downdelay=0 primary_reselect=2 fail_over_mac=0 mode=active-backup primary=eth0 arp_validate=0 arp_interval=0"
+BOND1_BONDING_OPTS="resend_igmp=1 updelay=0 use_carrier=1 miimon=100 downdelay=0 primary_reselect=2 fail_over_mac=0 mode=active-backup primary=eth1 arp_validate=0 arp_interval=0"
+[ "$i_DGW_DEV" = "bond1" ] || BOND1_BONDING_OPTS="resend_igmp=1 updelay=0 use_carrier=1 miimon=100 downdelay=0 mode=balance-rr arp_validate=0 arp_interval=0"
+
+shred -uvz  /etc/sysconfig/network-scripts/ifcfg-bond0 2> /dev/null
+cat << EOF | tee /etc/sysconfig/network-scripts/ifcfg-bond0
+DEVICE=bond0
+NAME=bond0
+TYPE=Bond
+PROXY_METHOD=none
+BROWSER_ONLY=no
+UUID=$(uuidgen)
+BONDING_OPTS="$BOND0_BONDING_OPTS"
+BONDING_MASTER=yes
+ONBOOT=yes
+BOOTPROTO=none
+DEFROUTE=yes
+PEERDNS=no
+PEERROUTES=yes
+IPV4_FAILURE_FATAL=yes
+IPV6INIT=no
+IPV6_AUTOCONF=no
+IPV6_DEFROUTE=no
+IPV6_PEERDNS=no
+IPV6_PEERROUTES=no
+IPV6_FAILURE_FATAL=no
+MULTI_CONNECT=1
+DEVTIMEOUT=60
+NM_CONTROLLED=no
+IPADDR=$i_BOND0_IP
+PREFIX=$i_BOND0_PREFIX
+DNS1=$i_DNS1
+DNS2=$i_DNS2
+DOMAIN=
+MTU=$i_BOND0_MTU
+EOF
+
+shred -uvz  /etc/sysconfig/network-scripts/ifcfg-bond1 2> /dev/null
+cat << EOF | tee /etc/sysconfig/network-scripts/ifcfg-bond1
+DEVICE=bond1
+NAME=bond1
+TYPE=Bond
+PROXY_METHOD=none
+BROWSER_ONLY=no
+UUID=$(uuidgen)
+BONDING_OPTS="$BOND1_BONDING_OPTS"
+BONDING_MASTER=yes
+ONBOOT=yes
+BOOTPROTO=none
+DEFROUTE=yes
+PEERDNS=no
+PEERROUTES=yes
+IPV4_FAILURE_FATAL=yes
+IPV6INIT=no
+IPV6_AUTOCONF=no
+IPV6_DEFROUTE=no
+IPV6_PEERDNS=no
+IPV6_PEERROUTES=no
+IPV6_FAILURE_FATAL=no
+MULTI_CONNECT=1
+DEVTIMEOUT=60
+NM_CONTROLLED=no
+IPADDR=$i_BOND1_IP
+PREFIX=$i_BOND1_PREFIX
+MTU=$i_BOND1_MTU
+EOF
+
+shred -uvz  /etc/sysconfig/network-scripts/ifcfg-eth0 2> /dev/null
+cat << EOF | tee /etc/sysconfig/network-scripts/ifcfg-eth0
+DEVICE=eth0
+NAME=eth0
+TYPE=Ethernet
+UUID=$(uuidgen)
+MASTER=bond0
+SLAVE=yes
+ONBOOT=yes
+MTU=$i_BOND0_MTU
+EOF
+
+shred -uvz  /etc/sysconfig/network-scripts/ifcfg-eth2 2> /dev/null
+cat << EOF | tee /etc/sysconfig/network-scripts/ifcfg-eth2
+DEVICE=eth2
+NAME=eth2
+TYPE=Ethernet
+UUID=$(uuidgen)
+MASTER=bond0
+SLAVE=yes
+ONBOOT=yes
+MTU=$i_BOND0_MTU
+EOF
+
+shred -uvz  /etc/sysconfig/network-scripts/ifcfg-eth1 2> /dev/null
+cat << EOF | tee /etc/sysconfig/network-scripts/ifcfg-eth1
+DEVICE=eth1
+NAME=eth1
+TYPE=Ethernet
+UUID=$(uuidgen)
+MASTER=bond1
+SLAVE=yes
+ONBOOT=yes
+MTU=$i_BOND1_MTU
+EOF
+
+shred -uvz  /etc/sysconfig/network-scripts/ifcfg-eth3 2> /dev/null
+cat << EOF | tee /etc/sysconfig/network-scripts/ifcfg-eth3
+DEVICE=eth3
+NAME=eth3
+TYPE=Ethernet
+UUID=$(uuidgen)
+MASTER=bond1
+SLAVE=yes
+ONBOOT=yes
+MTU=$i_BOND1_MTU
+EOF
+
+#if [ "$i_NETWORK_TYPE" = "D" ]; then
+#  cat << EOF | tee /etc/sysconfig/network-scripts/ifcfg-eth2
+#DEVICE=eth2
+#NAME=eth2
+#TYPE=Ethernet
+#PROXY_METHOD=none
+#BROWSER_ONLY=no
+#UUID=$(uuidgen)
+#ONBOOT=yes
+#BOOTPROTO=none
+#DEFROUTE=yes
+#PEERDNS=no
+#PEERROUTES=yes
+#IPV4_FAILURE_FATAL=yes
+#IPV6INIT=no
+#IPV6_AUTOCONF=no
+#IPV6_DEFROUTE=no
+#IPV6_PEERDNS=no
+#IPV6_PEERROUTES=no
+#IPV6_FAILURE_FATAL=no
+#MULTI_CONNECT=1
+#DEVTIMEOUT=60
+#NM_CONTROLLED=no
+#IPADDR=$i_DIR_IP
+#PREFIX=24
+#MTU=1500
+#EOF
+#fi
+#
+#if [ "$i_NETWORK_TYPE" = "E" -o "$i_NETWORK_TYPE" = "F" ]; then
+#  cat << EOF | tee /etc/sysconfig/network-scripts/ifcfg-eth3
+#DEVICE=eth3
+#NAME=eth3
+#TYPE=Ethernet
+#PROXY_METHOD=none
+#BROWSER_ONLY=no
+#UUID=$(uuidgen)
+#ONBOOT=yes
+#BOOTPROTO=none
+#DEFROUTE=yes
+#PEERDNS=no
+#PEERROUTES=yes
+#IPV4_FAILURE_FATAL=yes
+#IPV6INIT=no
+#IPV6_AUTOCONF=no
+#IPV6_DEFROUTE=no
+#IPV6_PEERDNS=no
+#IPV6_PEERROUTES=no
+#IPV6_FAILURE_FATAL=no
+#MULTI_CONNECT=1
+#DEVTIMEOUT=60
+#NM_CONTROLLED=no
+#IPADDR=$i_DIR_IP
+#PREFIX=24
+#MTU=1500
+#EOF
+#fi
+
+shred -uvz  /etc/sysconfig/network 2> /dev/null
+cat << EOF | tee /etc/sysconfig/network
+NETWORKING=Yes
+GATEWAY=$i_DGW
+NOZEROCONF=yes
+EOF
+
+shred -uvz  /etc/sysconfig/network-scripts/route-bond0 2> /dev/null
+shred -uvz  /etc/sysconfig/network-scripts/route-bond1 2> /dev/null
+[ "$i_BOND0_STATIC_ROUTE0" ] && echo "$i_BOND0_STATIC_ROUTE0" | tee -a /etc/sysconfig/network-scripts/route-bond0
+[ "$i_BOND0_STATIC_ROUTE1" ] && echo "$i_BOND0_STATIC_ROUTE1" | tee -a /etc/sysconfig/network-scripts/route-bond0
+[ "$i_BOND0_STATIC_ROUTE2" ] && echo "$i_BOND0_STATIC_ROUTE2" | tee -a /etc/sysconfig/network-scripts/route-bond0
+[ "$i_BOND1_STATIC_ROUTE0" ] && echo "$i_BOND1_STATIC_ROUTE0" | tee -a /etc/sysconfig/network-scripts/route-bond1
+[ "$i_BOND1_STATIC_ROUTE1" ] && echo "$i_BOND1_STATIC_ROUTE1" | tee -a /etc/sysconfig/network-scripts/route-bond1
+[ "$i_BOND1_STATIC_ROUTE2" ] && echo "$i_BOND1_STATIC_ROUTE2" | tee -a /etc/sysconfig/network-scripts/route-bond1
+
+shred -uvz  /etc/hosts 2> /dev/null
+cat << EOF | tee /etc/hosts
+127.0.0.1   localhost localhost.localdomain localhost4 localhost4.localdomain4
+::1         localhost localhost.localdomain localhost6 localhost6.localdomain6
+$i_NODE1_BOND0_IP $i_NODE1_NAME iden1-mn$(if [ "$i_DGW_DEV" = "bond0" ]; then echo " iden1-sv"; fi)
+$i_NODE1_BOND1_IP $i_NODE1_NAME-bond1 $(if [ "$i_DGW_DEV" = "bond1" ]; then echo iden1-sv; else echo iden1-hb; fi)
+$i_NODE1_BMC_IP $i_NODE1_NAME-bmc
+#$([ "$i_NETWORK_TYPE" = "D" -o "$i_NETWORK_TYPE" = "E" -o "$i_NETWORK_TYPE" = "F" ] && echo $i_NODE1_DIR_IP $i_NODE1_NAME-dir)
+$i_NODE2_BOND0_IP $i_NODE2_NAME inden2-mn$(if [ "$i_DGW_DEV" = "bond0" ]; then echo " iden2-sv"; fi)
+$i_NODE2_BOND1_IP $i_NODE2_NAME-bond1 $(if [ "$i_DGW_DEV" = "bond1" ]; then echo iden2-sv; else echo iden2-hb; fi)
+$i_NODE2_BMC_IP $i_NODE2_NAME-bmc
+#$([ "$i_NETWORK_TYPE" = "D" -o "$i_NETWORK_TYPE" = "E" -o "$i_NETWORK_TYPE" = "F" ] && echo $i_NODE2_DIR_IP $i_NODE2_NAME-dir)
+$i_DB i-db
+$i_SV $i_CLUSTERNAME.$i_DOMAINNAME
+$i_COOPERATIVE1 $i_COOPERATIVE_NAME1 emr
+$([ "$i_COOPERATIVE_NAME2" ] && echo $i_COOPERATIVE2 $i_COOPERATIVE_NAME2)
+$([ "$i_COOPERATIVE_NAME3" ] && echo $i_COOPERATIVE3 $i_COOPERATIVE_NAME3)
+EOF
+
+cat << EOF | tee /etc/netconfig
+udp        tpi_clts      v     inet     udp     -       -
+tcp        tpi_cots_ord  v     inet     tcp     -       -
+#udp6       tpi_clts      v     inet6    udp     -       -
+#tcp6       tpi_cots_ord  v     inet6    tcp     -       -
+rawip      tpi_raw       -     inet      -      -       -
+local      tpi_cots_ord  -     loopback  -      -       -
+unix       tpi_cots_ord  -     loopback  -      -       -
+EOF
+
+cat << EOF | tee /etc/nsswitch.conf
+passwd:     files systemd
+shadow:     files
+group:      files systemd
+hosts:      files dns
+services:   files
+automount:  files
+aliases:    files
+ethers:     files
+gshadow:    files
+networks:   files dns
+protocols:  files
+publickey:  files
+rpc:        files
+EOF
+
+shred -uvz  /etc/resolv.conf 2> /dev/null
+if [ "$i_DNS1" ]; then
+  cat << EOF | tee /etc/resolv.conf
+nameserver $i_DNS1
+$([ "$i_DNS2" ] && echo nameserver $i_DNS2)
+EOF
+else
+  echo "" | tee /etc/resolv.conf
+fi
+
+shred -uvz  /etc/hostnamef 2> /dev/null
+echo $i_NODENAME | tee /etc/hostname
+hostnamectl set-hostname $i_NODENAME
+hostnamectl
+
+sed -i -e '/<Syslog name="syslog" format="RFC5424" host=".*" port="514" protocol="UDP" facility="LOCAL3" appName="tomcat"/ s/ host="[^"]*" / host="'$i_NODENAME'" /' /apl/tomcat/log4j/conf/log4j2.xml
+
+cat << 'EOF' | tee /etc/rsyslog.conf
+#### MODULES ####
+
+module(load="imuxsock" SysSock.Use="off")
+module(load="imjournal" StateFile="imjournal.state")
+#module(load="imklog") # reads kernel messages (the same are read from journald)
+#module(load="immark") # provides --MARK-- message capability
+module(load="omprog")
+
+# Provides UDP syslog reception
+module(load="imudp") # needs to be done just once
+input(type="imudp" port="514")
+
+# Provides TCP syslog reception
+#module(load="imtcp") # needs to be done just once
+#input(type="imtcp" port="514")
+
+#### GLOBAL DIRECTIVES ####
+
+global(workDirectory="/var/lib/rsyslog")
+module(load="builtin:omfile" Template="RSYSLOG_TraditionalFileFormat")
+
+template (name="Template1" type="string" string="/backup/self/syslog/%HOSTNAME%/%timereported:::date-year%/%timereported:::date-month%/%timereported:::date-day%/%programname%.log")
+template (name="Template2" type="string" string="%timegenerated:::date-year%/%timegenerated:::date-month%/%timegenerated:::date-day% %timegenerated:::date-hour%:%timegenerated:::date-minute%:%timegenerated:::date-second%:%timegenerated:::date-subseconds% %hostname% %syslogtag% %syslogfacility-text%.%syslogseverity-text%:%msg:::sp-if-no-1st-sp%%msg:::drop-last-lf%\n")
+template (name="Template3" type="string" string="%hostname% %syslogtag% %syslogfacility-text%.%syslogseverity-text%:%msg:::sp-if-no-1st-sp%%msg:::drop-last-lf%\n")
+
+$MaxOpenFiles 65535
+$MaxMessageSize 8k
+$RepeatedMsgReduction off
+
+$umask 0000
+$FileCreateMode 0600
+$DirCreateMode 0700
+$FileOwner root
+$FileGroup root
+$DirOwner root
+$DirGroup root
+
+include(file="/etc/rsyslog.d/*.conf" mode="optional")
+
+#### RULES ####
+
+#kern.*                                                 /dev/console;Template2
+
+*.info;mail.none;authpriv.none;cron.none;local7.none;local6.none;local5.none;local4.none;local3.none;local2.none;local1.none;local0.none /var/log/messages;Template2
+
+authpriv.*                                              /var/log/secure;Template2
+
+mail.*                                                  -/var/log/maillog;Template2
+
+cron.*                                                  /var/log/cron;Template2
+
+*.emerg                                                 :omusrmsg:*
+
+uucp,news.crit                                          /var/log/spooler;Template2
+
+local7.*                                                /var/log/boot.log;Template2
+local6.*                                                /var/log/infrascripts.log;Template2
+local5.*                                                /var/log/httpd/error_log;Template2
+local4.*                                                /var/log/httpd/access_log;Template2
+local3.*                                                /var/log/tomcat/catalina.log;Template2
+local2.*                                                /var/log/postgresql.log;Template2
+local1.*                                                /var/log/pacemaker.log;Template2
+local0.*                                                /var/log/apl.log;Template2
+EOF
+
+[ "$i_RSYSLOG_JA" = "on" ] || sed -i -e 's/;Template2//' /etc/rsyslog.conf
+
+shred -uvz  /etc/rsyslog.d/logserver.conf 2> /dev/null
+cat << EOF | tee /etc/rsyslog.d/logserver.conf
+if \$fromhost-ip == ['$i_NODE1_BMC_IP' , '$i_NODE2_BMC_IP'] then {
+  action(type="omprog"
+         binary="/usr/bin/logger -p local7.err -t ilo"
+         template="Template3")
+  stop
+}
+if \$fromhost-ip != '127.0.0.1' then {
+  ?Template1;Template2
+  stop
+}
+*.*                                                     ?Template1;Template2
+*.*                                                     @$i_peer
+EOF
+[ "$i_LOG1" ] && echo "*.$i_LOG_PRIORITY @$i_LOG1" | tee -a /etc/rsyslog.d/logserver.conf
+[ "$i_LOG2" ] && echo "*.$i_LOG_PRIORITY @$i_LOG2" | tee -a /etc/rsyslog.d/logserver.conf
+
+cat << 'EOF' | tee /etc/sysconfig/chronyd
+OPTIONS="-4"
+EOF
+
+shred -uvz  /etc/chrony.conf 2> /dev/null
+cat << EOF | tee /etc/chrony.conf
+$([ "$i_NTP1" ] && echo server $i_NTP1 iburst)
+$([ "$i_NTP2" ] && echo server $i_NTP2 iburst)
+$([ "$i_NTP3" ] && echo server $i_NTP3 iburst)
+$([ "$i_CLUSTER_INDEX" = "2" ] && echo server $i_peer iburst)
+stratumweight 0
+driftfile /var/lib/chrony/drift
+makestep 1.0 3
+#leapsecmode slew
+rtcsync
+allow $i_peer/32
+allow $i_NODE1_BMC_IP/32
+allow $i_NODE2_BMC_IP/32
+bindcmdaddress 127.0.0.1
+local stratum $((i_CLUSTER_INDEX*2+10))
+keyfile /etc/chrony.keys
+leapsectz right/UTC
+logchange 0.5
+noclientlog
+logdir /var/log/chrony
+log measurements statistics tracking
+EOF
+
+sed -i -e 's/^ServerName .*$/ServerName '"$i_CLUSTERNAME.$i_DOMAINNAME"':443/' /etc/httpd/conf.d/ssl.conf
+
+cat << 'EOF' | tee /etc/dnsmasq.d/domain.conf
+domain-needed
+EOF
+if [ "$i_DNSMASQ" = "on" ]; then
+  systemctl enable dnsmasq.service
+else
+  systemctl disable dnsmasq.service
+fi
+
+shred -uvz  /etc/firewalld/zones/public.xml 2> /dev/null
+shred -uvz  /etc/firewalld/zones/public.xml.old 2> /dev/null
+cat << 'EOF' | tee /etc/firewalld/zones/public.xml
+<?xml version="1.0" encoding="utf-8"?>
+<zone>
+  <short>Public</short>
+  <description>For use in public areas. You do not trust the other computers on networks to not harm your computer. Only selected incoming connections are accepted.</description>
+  <service name="ssh"/>
+  <service name="high-availability"/>
+  <service name="https"/>
+</zone>
+EOF
+cp -a /etc/firewalld/zones/public.xml{,.old}
+
+if [ "$i_FIREWALL" = "on" ]; then
+  systemctl enable firewalld.service
+  systemctl stop firewalld.service
+  systemctl start firewalld.service
+  firewall-cmd --permanent --zone=public --add-rich-rule="rule family=ipv4 source address=127.0.0.0/8 accept"
+  firewall-cmd --permanent --zone=public --add-rich-rule="rule family=ipv4 source address=$i_NODE1_BOND0_IP accept"
+  firewall-cmd --permanent --zone=public --add-rich-rule="rule family=ipv4 source address=$i_NODE1_BOND1_IP accept"
+  firewall-cmd --permanent --zone=public --add-rich-rule="rule family=ipv4 source address=$i_NODE1_BMC_IP accept"
+  [ "$i_NODE1_DIR_IP" ] && firewall-cmd --permanent --zone=public --add-rich-rule="rule family=ipv4 source address=$i_NODE1_DIR_IP accept"
+  firewall-cmd --permanent --zone=public --add-rich-rule="rule family=ipv4 source address=$i_NODE2_BOND0_IP accept"
+  firewall-cmd --permanent --zone=public --add-rich-rule="rule family=ipv4 source address=$i_NODE2_BOND1_IP accept"
+  firewall-cmd --permanent --zone=public --add-rich-rule="rule family=ipv4 source address=$i_NODE2_BMC_IP accept"
+  [ "$i_NODE2_DIR_IP" ] && firewall-cmd --permanent --zone=public --add-rich-rule="rule family=ipv4 source address=$i_NODE2_DIR_IP accept"
+  [ "$i_TRUSTED_IP_ADDR1" ] && firewall-cmd --permanent --zone=public --add-rich-rule="rule family=ipv4 source address=$i_TRUSTED_IP_ADDR1 accept"
+  [ "$i_TRUSTED_IP_ADDR2" ] && firewall-cmd --permanent --zone=public --add-rich-rule="rule family=ipv4 source address=$i_TRUSTED_IP_ADDR2 accept"
+  [ "$i_TRUSTED_IP_ADDR3" ] && firewall-cmd --permanent --zone=public --add-rich-rule="rule family=ipv4 source address=$i_TRUSTED_IP_ADDR3 accept"
+  [ "$i_TRUSTED_IP_ADDR4" ] && firewall-cmd --permanent --zone=public --add-rich-rule="rule family=ipv4 source address=$i_TRUSTED_IP_ADDR4 accept"
+  [ "$i_TRUSTED_IP_ADDR5" ] && firewall-cmd --permanent --zone=public --add-rich-rule="rule family=ipv4 source address=$i_TRUSTED_IP_ADDR5 accept"
+  [ "$i_TRUSTED_IP_ADDR6" ] && firewall-cmd --permanent --zone=public --add-rich-rule="rule family=ipv4 source address=$i_TRUSTED_IP_ADDR6 accept"
+  [ "$i_TRUSTED_IP_ADDR7" ] && firewall-cmd --permanent --zone=public --add-rich-rule="rule family=ipv4 source address=$i_TRUSTED_IP_ADDR7 accept"
+  [ "$i_TRUSTED_IP_ADDR8" ] && firewall-cmd --permanent --zone=public --add-rich-rule="rule family=ipv4 source address=$i_TRUSTED_IP_ADDR8 accept"
+  [ "$i_TRUSTED_IP_ADDR9" ] && firewall-cmd --permanent --zone=public --add-rich-rule="rule family=ipv4 source address=$i_TRUSTED_IP_ADDR9 accept"
+  [ "$i_TRUSTED_IP_ADDR10" ] && firewall-cmd --permanent --zone=public --add-rich-rule="rule family=ipv4 source address=$i_TRUSTED_IP_ADDR10 accept"
+else
+  systemctl disable firewalld.service
+fi
+
+if [ "$i_CONSOLE_MFA" = "on" ]; then
+  ln -sf login_ga_on /etc/pam.d/login
+else
+  ln -sf login_ga_off /etc/pam.d/login
+fi
+
+if [ "$i_USER_MFA" = "on" ]; then
+  ln -sf password-auth_ga_on /etc/pam.d/password-auth
+  ln -sf sshd_config_ga_on /etc/ssh/sshd_config
+else
+  ln -sf password-auth_ga_off /etc/pam.d/password-auth
+  ln -sf sshd_config_ga_off /etc/ssh/sshd_config
+fi
+
+shred -uvz  /etc/pg-rex_tools.conf 2> /dev/null
+cat << EOF | tee /etc/pg-rex_tools.conf
+D_LAN_IPAddress = $i_NODE1_BOND0_IP, $i_NODE2_BOND0_IP
+IC_LAN_IPAddress = ($i_NODE1_BOND0_IP, $i_NODE2_BOND0_IP) , ($i_NODE1_BOND1_IP, $i_NODE2_BOND1_IP)
+Archive_dir = /var/lib/pgsql/pgarch
+STONITH = enable
+IPADDR_STANDBY = disable
+PGPATH = /usr/pgsql-12/bin
+PEER_NODE_SSH_PASS_MODE = nopass
+PEER_NODE_SSH_PASS_FILE =
+BACKUP_NODE_SSH_PASS_MODE = nopass
+BACKUP_NODE_SSH_PASS_FILE =
+PG_REX_Primary_ResourceID = pgsql-clone
+PG_REX_Primitive_ResourceID = pgsql
+IPADDR_PRIMARY_ResourceID = ipaddr-primary
+IPADDR_REPLICATION_ResourceID = ipaddr-replication
+#IPADDR_STANDBY_ResourceID = ipaddr-standby
+#PING_ResourceID = ping-clone
+STONITH_ResourceID = fence1 , fence2
+HACLUSTER_NAME = pgrex_cluster
+EOF
+[ "$i_DGW_DEV" = "bond0" ] && sed -i -e "s/^D_LAN_IPAddress = .*$/D_LAN_IPAddress = $i_NODE1_BOND1_IP, $i_NODE2_BOND1_IP/" /etc/pg-rex_tools.conf
+
+shred -uvz  /root/dbcluster.xml 2> /dev/null
+cat << EOF | tee /root/dbcluster.xml
+<cib crm_feature_set="3.4.1" validate-with="pacemaker-3.4" epoch="17" num_updates="0" admin_epoch="0">
+  <configuration>
+    <crm_config>
+      <cluster_property_set id="cib-bootstrap-options">
+        <nvpair id="cib-bootstrap-options-priority-fencing-delay" name="priority-fencing-delay" value="10s"/>
+      </cluster_property_set>
+    </crm_config>
+    <nodes/>
+    <resources>
+      <group id="primary-group">
+        <primitive class="ocf" id="ipaddr-primary" provider="heartbeat" type="IPaddr2">
+          <instance_attributes id="ipaddr-primary-instance_attributes">
+            <nvpair id="ipaddr-primary-instance_attributes-cidr_netmask" name="cidr_netmask" value="24"/>
+            <nvpair id="ipaddr-primary-instance_attributes-ip" name="ip" value="$i_SV"/>
+            <nvpair id="ipaddr-primary-instance_attributes-nic" name="nic" value="$i_DGW_DEV"/>
+          </instance_attributes>
+          <operations>
+            <op id="ipaddr-primary-monitor-interval-10s" interval="10s" name="monitor" on-fail="restart" timeout="60s"/>
+            <op id="ipaddr-primary-start-interval-0s" interval="0s" name="start" on-fail="restart" timeout="60s"/>
+            <op id="ipaddr-primary-stop-interval-0s" interval="0s" name="stop" on-fail="fence" timeout="60s"/>
+          </operations>
+        </primitive>
+        <primitive class="ocf" id="ipaddr-replication" provider="heartbeat" type="IPaddr2">
+          <instance_attributes id="ipaddr-replication-instance_attributes">
+            <nvpair id="ipaddr-replication-instance_attributes-cidr_netmask" name="cidr_netmask" value="24"/>
+            <nvpair id="ipaddr-replication-instance_attributes-ip" name="ip" value="$i_DB"/>
+            <nvpair id="ipaddr-replication-instance_attributes-nic" name="nic" value="$([ "$i_DGW_DEV" = "bond0" ] && echo bond1 || echo bond0)"/>
+          </instance_attributes>
+          <operations>
+            <op id="ipaddr-replication-monitor-interval-10s" interval="10s" name="monitor" on-fail="restart" timeout="60s"/>
+            <op id="ipaddr-replication-start-interval-0s" interval="0s" name="start" on-fail="stop" timeout="60s"/>
+            <op id="ipaddr-replication-stop-interval-0s" interval="0s" name="stop" on-fail="ignore" timeout="60s"/>
+          </operations>
+        </primitive>
+      </group>
+      <clone id="pgsql-clone">
+        <primitive class="ocf" id="pgsql" provider="linuxhajp" type="pgsql">
+          <instance_attributes id="pgsql-instance_attributes">
+            <nvpair id="pgsql-instance_attributes-master_ip" name="master_ip" value="$i_DB"/>
+            <nvpair id="pgsql-instance_attributes-node_list" name="node_list" value="$i_NODE1_NAME $i_NODE2_NAME"/>
+            <nvpair id="pgsql-instance_attributes-pgctl" name="pgctl" value="/usr/pgsql-12/bin/pg_ctl"/>
+            <nvpair id="pgsql-instance_attributes-pgdata" name="pgdata" value="/var/lib/pgsql/data"/>
+            <nvpair id="pgsql-instance_attributes-pgdb" name="pgdb" value="template1"/>
+            <nvpair id="pgsql-instance_attributes-pgdba" name="pgdba" value="postgres"/>
+            <nvpair id="pgsql-instance_attributes-pgport" name="pgport" value="5432"/>
+            <nvpair id="pgsql-instance_attributes-primary_conninfo_opt" name="primary_conninfo_opt" value="keepalives_idle=60 keepalives_interval=5 keepalives_count=5"/>
+            <nvpair id="pgsql-instance_attributes-psql" name="psql" value="/usr/pgsql-12/bin/psql"/>
+            <nvpair id="pgsql-instance_attributes-rep_mode" name="rep_mode" value="sync"/>
+            <nvpair id="pgsql-instance_attributes-repuser" name="repuser" value="repuser"/>
+            <nvpair id="pgsql-instance_attributes-restore_command" name="restore_command" value="/bin/cp /var/lib/pgsql/pgarch/%f %p"/>
+            <nvpair id="pgsql-instance_attributes-stop_escalate" name="stop_escalate" value="0"/>
+            <nvpair id="pgsql-instance_attributes-xlog_check_count" name="xlog_check_count" value="0"/>
+          </instance_attributes>
+          <operations>
+            <op id="pgsql-demote-interval-0s" interval="0s" name="demote" on-fail="fence" timeout="300s"/>
+            <op id="pgsql-methods-interval-0s" interval="0s" name="methods" timeout="5s"/>
+            <op id="pgsql-monitor-interval-10s" interval="10s" name="monitor" on-fail="restart" timeout="60s"/>
+            <op id="pgsql-monitor-interval-9s" interval="9s" name="monitor" on-fail="restart" role="Master" timeout="60s"/>
+            <op id="pgsql-notify-interval-0s" interval="0s" name="notify" timeout="60s"/>
+            <op id="pgsql-promote-interval-0s" interval="0s" name="promote" on-fail="restart" timeout="300s"/>
+            <op id="pgsql-start-interval-0s" interval="0s" name="start" on-fail="restart" timeout="300s"/>
+            <op id="pgsql-stop-interval-0s" interval="0s" name="stop" on-fail="fence" timeout="300s"/>
+          </operations>
+        </primitive>
+        <meta_attributes id="pgsql-clone-meta_attributes">
+          <nvpair id="pgsql-clone-meta_attributes-promotable" name="promotable" value="true"/>
+          <nvpair id="pgsql-clone-meta_attributes-promoted-max" name="promoted-max" value="1"/>
+          <nvpair id="pgsql-clone-meta_attributes-promoted-node-max" name="promoted-node-max" value="1"/>
+          <nvpair id="pgsql-clone-meta_attributes-clone-max" name="clone-max" value="2"/>
+          <nvpair id="pgsql-clone-meta_attributes-clone-node-max" name="clone-node-max" value="1"/>
+          <nvpair id="pgsql-clone-meta_attributes-notify" name="notify" value="true"/>
+          <nvpair id="pgsql-clone-meta_attributes-priority" name="priority" value="1"/>
+        </meta_attributes>
+      </clone>
+      <primitive class="stonith" id="fence1" type="fence_ilo5_ssh">
+        <instance_attributes id="fence1-instance_attributes">
+          <nvpair id="fence1-instance_attributes-identity_file" name="identity_file" value="/root/.ssh/peer"/>
+          <nvpair id="fence1-instance_attributes-ip" name="ip" value="$i_NODE1_BMC_IP"/>
+          <nvpair id="fence1-instance_attributes-pcmk_host_list" name="pcmk_host_list" value="$i_NODE1_NAME"/>
+          <nvpair id="fence1-instance_attributes-ssh" name="ssh" value="true"/>
+          <nvpair id="fence1-instance_attributes-username" name="username" value="stonith"/>
+        </instance_attributes>
+        <operations>
+          <op id="fence1-monitor-interval-3600s" interval="3600s" name="monitor" on-fail="restart" timeout="60s"/>
+          <op id="fence1-start-interval-0s" interval="0s" name="start" on-fail="restart" timeout="60s"/>
+          <op id="fence1-stop-interval-0s" interval="0s" name="stop" on-fail="ignore" timeout="60s"/>
+        </operations>
+      </primitive>
+      <primitive class="stonith" id="fence2" type="fence_ilo5_ssh">
+        <instance_attributes id="fence2-instance_attributes">
+          <nvpair id="fence2-instance_attributes-identity_file" name="identity_file" value="/root/.ssh/peer"/>
+          <nvpair id="fence2-instance_attributes-ip" name="ip" value="$i_NODE2_BMC_IP"/>
+          <nvpair id="fence2-instance_attributes-pcmk_host_list" name="pcmk_host_list" value="$i_NODE2_NAME"/>
+          <nvpair id="fence2-instance_attributes-ssh" name="ssh" value="true"/>
+          <nvpair id="fence2-instance_attributes-username" name="username" value="stonith"/>
+        </instance_attributes>
+        <operations>
+          <op id="fence2-monitor-interval-3600s" interval="3600s" name="monitor" on-fail="restart" timeout="60s"/>
+          <op id="fence2-start-interval-0s" interval="0s" name="start" on-fail="restart" timeout="60s"/>
+          <op id="fence2-stop-interval-0s" interval="0s" name="stop" on-fail="ignore" timeout="60s"/>
+        </operations>
+      </primitive>
+    </resources>
+    <constraints>
+      <rsc_location id="location-fence1-$i_NODE1_NAME--INFINITY" node="$i_NODE1_NAME" rsc="fence1" score="-INFINITY"/>
+      <rsc_location id="location-fence2-$i_NODE2_NAME--INFINITY" node="$i_NODE2_NAME" rsc="fence2" score="-INFINITY"/>
+      <rsc_colocation id="colocation-primary-group-pgsql-clone-INFINITY" rsc="primary-group" rsc-role="Started" score="INFINITY" with-rsc="pgsql-clone" with-rsc-role="Master"/>
+      <rsc_order first="pgsql-clone" first-action="promote" id="order-pgsql-clone-primary-group-mandatory" symmetrical="false" then="primary-group" then-action="start"/>
+      <rsc_order first="pgsql-clone" first-action="demote" id="order-pgsql-clone-primary-group-Optional" kind="Optional" symmetrical="false" then="primary-group" then-action="stop"/>
+    </constraints>
+    <rsc_defaults>
+      <meta_attributes id="rsc_defaults-meta_attributes">
+        <nvpair id="rsc_defaults-meta_attributes-resource-stickiness" name="resource-stickiness" value="200"/>
+        <nvpair id="rsc_defaults-meta_attributes-migration-threshold" name="migration-threshold" value="1"/>
+      </meta_attributes>
+    </rsc_defaults>
+  </configuration>
+  <status/>
+</cib>
+EOF
+
+NIC_DEV=eth0,eth2
+#NIC_DEV=eth0,eth2; [ "$i_NETWORK_TYPE" = "D" ] && NIC_DEV=eth0
+sed -i -e '/bond/ s/ ip=[^ ]*"$/ ip='$i_BOND0_IP::$i_DGW_FOR_DRACUT:$i_BOND0_PREFIX:$i_NODENAME:bond0:none:$i_BOND0_MTU'"/' /etc/default/grub
+grep -q ' ip=[^ ]*"$' /etc/default/grub && grub2-mkconfig -o /boot/grub2/grub.cfg
+:
+EOF_
+chmod 755 /root/i_set_network.bash || $Error :
+
+
+
+
+
+cat << 'EOF' | tee /usr/local/bin/i_onlinebackup.bash || $Error :
+#!/bin/bash
+
+SCRIPT_VER="1.0.0"
+ERR_SINGLETON_COUNT=10
+print_help()
+{
+  echo "[ Arguments for $SCRIPT_ID ]"
+  echo "$0 [-f] -c"
+  echo "    complete backup (full backup)"
+  echo "$0 [-f] [-d]"
+  echo "    differential backups (default)"
+  echo "$0 [-f] -i"
+  echo "    initialize snpapshot"
+  echo ""
+}
+. /usr/local/bin/i_common.include
+
+if [ $# -ge 2 ]; then
+  echo "Arg: $@ ($#) / too many." >&2
+  exit 1
+fi
+if [ "$1" = "" -o "$1" = "-c" -o "$1" = "-d" -o "$1" = "-i" ]; then
+ :
+else
+  echo "Unknon Arguments: $1" >&2
+  exit 1
+fi
+
+if [ "$1" = "-i" ]; then
+  echo ""
+  echo "fuser -mv /backup/mntsnap"
+  echo ""
+  fuser -mv /backup/mntsnap
+  echo ""
+  echo "lsof +D /backup/mntsnap"
+  echo ""
+  lsof +D /backup/mntsnap
+  echo ""
+  umount -f /backup/mntsnap
+  umount -l /backup/mntsnap
+  lvm lvremove --force /dev/vg0/snap
+  exit 0
+fi
+if [ "$1" = "-c" ]; then
+  rm -f /backup/self/onlinebackup/$i_ENV-last
+fi
+
+mkdir -p /backup/mntsnap/
+mkdir -p /backup/self/onlinebackup/
+
+now=${i_ENV}_$(date "+%Y%m%d_%H%M")
+[ -r /backup/self/onlinebackup/$i_ENV-last ] || now=$now-full
+if ! err=$(lvm lvcreate --extents 100%FREE --snapshot --name snap /dev/vg0/root 2>&1); then
+  echo "$err  Implement first aid: sudo $SCRIPT_PATH/$SCRIPT_ID -i" >&2
+  $LOGGER "$FATAL_ERROR 2: $err  Implement first aid: sudo $SCRIPT_PATH/$SCRIPT_ID -i"
+  exit 2
+fi
+if ! err=$(xfs_repair -L /dev/vg0/snap 2>&1); then
+  echo "$err  Implement first aid: sudo $SCRIPT_PATH/$SCRIPT_ID -i" >&2
+  $LOGGER "$FATAL_ERROR 4: $err  Implement first aid: sudo $SCRIPT_PATH/$SCRIPT_ID -i"
+  if ! err=$(lvm lvremove --force /dev/vg0/snap 2>&1); then
+    echo "$err  Implement first aid: sudo $SCRIPT_PATH/$SCRIPT_ID -i" >&2
+    $LOGGER "$FATAL_ERROR 6: $err  Implement first aid: sudo $SCRIPT_PATH/$SCRIPT_ID -i"
+  fi
+  exit 4
+fi
+if ! err=$(xfs_admin -U generate /dev/vg0/snap 2>&1); then
+  echo "$err  Implement first aid: sudo $SCRIPT_PATH/$SCRIPT_ID -i" >&2
+  $LOGGER "$FATAL_ERROR 8: $err  Implement first aid: sudo $SCRIPT_PATH/$SCRIPT_ID -i"
+  if ! err=$(lvm lvremove --force /dev/vg0/snap 2>&1); then
+    echo "$err  Implement first aid: sudo $SCRIPT_PATH/$SCRIPT_ID -i" >&2
+    $LOGGER "$FATAL_ERROR 10: $err  Implement first aid: sudo $SCRIPT_PATH/$SCRIPT_ID -i"
+  fi
+  exit 8
+fi
+if ! err=$(mount -t xfs -o ro /dev/vg0/snap /backup/mntsnap 2>&1); then
+  echo "$err  Implement first aid: sudo $SCRIPT_PATH/$SCRIPT_ID -i" >&2
+  $LOGGER "$FATAL_ERROR 12: $err  Implement first aid: sudo $SCRIPT_PATH/$SCRIPT_ID -i"
+  if ! err=$(lvm lvremove --force /dev/vg0/snap 2>&1); then
+    echo "$err  Implement first aid: sudo $SCRIPT_PATH/$SCRIPT_ID -i" >&2
+    $LOGGER "$FATAL_ERROR 14: $err  Implement first aid: sudo $SCRIPT_PATH/$SCRIPT_ID -i"
+  fi
+  exit 12
+fi
+if ! err=$(mkdir /backup/self/onlinebackup/$now 2>&1); then
+  echo "$err  Implement first aid: Wait a minute and re-run it." >&2
+  $LOGGER "$FATAL_ERROR 16: $err  Implement first aid: sudo $SCRIPT_PATH/$SCRIPT_ID -i"
+  if ! err=$(umount -f /backup/mntsnap 2>&1 || umount -l /backup/mntsnap 2>&1); then
+    echo "$err  Implement first aid: sudo $SCRIPT_PATH/$SCRIPT_ID -i" >&2
+    $LOGGER "$FATAL_ERROR 18: $err  Implement first aid: sudo $SCRIPT_PATH/$SCRIPT_ID -i"
+  fi
+  if ! err=$(lvm lvremove --force /dev/vg0/snap 2>&1); then
+    echo "$err  Implement first aid: sudo $SCRIPT_PATH/$SCRIPT_ID -i" >&2
+    $LOGGER "$FATAL_ERROR 20: $err  Implement first aid: sudo $SCRIPT_PATH/$SCRIPT_ID -i"
+  fi
+  exit 16
+fi
+
+if [ -r /backup/self/onlinebackup/$i_ENV-last ]; then
+  last=$(cat /backup/self/onlinebackup/$i_ENV-last)
+  if ! err=$(rsync -aAHXS --link-dest=/backup/self/onlinebackup/$last/ /backup/mntsnap/ /backup/self/onlinebackup/$now/ 2>&1); then
+    echo "$err  Implement first aid: sudo $SCRIPT_PATH/$SCRIPT_ID -i" >&2
+    $LOGGER "$FATAL_ERROR 22: $err  Implement first aid: sudo $SCRIPT_PATH/$SCRIPT_ID -i"
+  fi
+  if ! err=$(rsync -aAHXS --link-dest=/backup/self/onlinebackup/$last/boot/ /boot/ /backup/self/onlinebackup/$now/boot/ 2>&1); then
+    echo "$err  Implement first aid: sudo $SCRIPT_PATH/$SCRIPT_ID -i" >&2
+    $LOGGER "$FATAL_ERROR 24: $err  Implement first aid: sudo $SCRIPT_PATH/$SCRIPT_ID -i"
+  fi
+else
+  if ! err=$(rsync -aAHXS /backup/mntsnap/ /backup/self/onlinebackup/$now/ 2>&1); then
+    echo "$err  Implement first aid: sudo $SCRIPT_PATH/$SCRIPT_ID -i" >&2
+    $LOGGER "$FATAL_ERROR 26: $err  Implement first aid: sudo $SCRIPT_PATH/$SCRIPT_ID -i"
+  fi
+  if ! err=$(rsync -aAHXS /boot/ /backup/self/onlinebackup/$now/boot/ 2>&1); then
+    echo "$err  Implement first aid: sudo $SCRIPT_PATH/$SCRIPT_ID -i" >&2
+    $LOGGER "$FATAL_ERROR 28: $err  Implement first aid: sudo $SCRIPT_PATH/$SCRIPT_ID -i"
+  fi
+fi
+if ! echo $now > /backup/self/onlinebackup/$i_ENV-last 2>&1; then
+  echo "Failed to update the latest backup information." >&2
+  $LOGGER "$FATAL_ERROR 30: -bash: /backup/self/onlinebackup/$i_ENV-last: Failed to update the latest backup information."
+fi
+ln -sf $i_ENV-last /backup/self/onlinebackup/last
+if ! err=$(umount -f /backup/mntsnap 2>&1 || umount -l /backup/mntsnap 2>&1); then
+  echo "$err  Implement first aid: sudo $SCRIPT_PATH/$SCRIPT_ID -i" >&2
+  $LOGGER "$FATAL_ERROR 32: $err  Implement first aid: sudo $SCRIPT_PATH/$SCRIPT_ID -i"
+fi
+if ! err=$(lvm lvremove --force /dev/vg0/snap 2>&1); then
+  echo "$err  Implement first aid: sudo $SCRIPT_PATH/$SCRIPT_ID -i" >&2
+  $LOGGER "$FATAL_ERROR 34: $err  Implement first aid: sudo $SCRIPT_PATH/$SCRIPT_ID -i"
+fi
+touch /backup/self/onlinebackup/$now/etc/sysconfig/MaintenanceWorkInProgress
+echo /backup/self/onlinebackup/$now/
+exit 0
+EOF
+chmod 755 /usr/local/bin/i_onlinebackup.bash || $Error :
+
+
+
+
+
+cat << 'EOF' | tee /root/i_init_log_dir.bash || $Error :
+#!/bin/bash
+
+SCRIPT_VER="1.0.0"
+ERR_SINGLETON_COUNT=10
+SCRIPT_PATH=/root
+MAINTENANCE_FILE=/root/MaintenanceWorkInProgress
+
+if [ $# -ge 1 ]; then
+  $IS_TTY && echo "Arg: $@ ($#) / too many." >&2
+  exit 1
+fi
+
+. $SCRIPT_PATH/i_common.include
+
+for i in $(find /var/log/ -type f) $(find /var/account/ -type f)
+do
+  shred -uvz $i
+done
+
+rm -rf /var/log /var/account
+
+mkdir -p /var/log/{aide,audit,chrony,cluster,httpd,iptraf-ng,pacemaker/bundles,pcsd,private,samba/old,tomcat} /var/log/pcp/{pmcd,pmie,pmlogger,pmproxy} /var/account
+
+chown -R chrony:input /var/log/chrony
+chown -R hacluster:haclient /var/log/pacemaker
+chown -R apache:apl /var/log/httpd
+chown -R pcp:pcp /var/log/pcp
+chown -R apache:apl /var/log/tomcat
+
+chmod -R 700 /var/log/{aide,audit,pcsd,private,samba}
+chmod -R 775 /var/log/{httpd,pacemaker,pcp,tomcat}
+
+touch /var/log/{btmp,wtmp,lastlog,secure,dnf.librepo.log,dnf.log,dnf.rpm.log,hawkey.log,firewalld} /var/log/httpd/{access_log,error_log} /var/account/pacct
+
+chgrp utmp /var/log/{btmp,wtmp,lastlog}
+chgrp apl /var/log/httpd/{access_log,error_log}
+
+chmod 0600 /var/log/{secure,dnf.librepo.log,dnf.log,dnf.rpm.log,hawkey.log,firewalld} /var/account/pacct
+chmod 0660 /var/log/btmp
+chmod 0664 /var/log/{wtmp,lastlog} /var/log/httpd/{access_log,error_log}
+
+for i in $(find /var/tmp/ -type f) $(find /tmp/ -type f)
+do
+  shred -uvz $i
+done
+rm -rf /var/tmp /tmp
+mkdir /var/tmp /tmp
+chmod 1777 /var/tmp /tmp
+EOF
+chmod 755 /root/i_init_log_dir.bash || $Error :

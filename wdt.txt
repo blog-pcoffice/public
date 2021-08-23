@@ -1,0 +1,17 @@
+ウォッチドッグ・タイマー
+https://www.gcd.org/blog/2006/05/72/
+https://www.gcd.org/blog/2007/10/134/
+https://www.gcd.org/blog/2008/06/157/
+古い記事だが入門にはちょうど良い。
+
+HP DL160サーバには少なくとも4つのハードウェアWatchdogが存在する。
+・IPMI Watchdog（これを有効化して使用する）
+・CPU内のnmi_watchdog（カーネル起動パラメータで無効化）
+・チップセット内のIntel TCO Timer（ブラックリストに入れて無効化）
+・HPマザーボード上に搭載された専用チップhpwdt（ブラックリストに入れて無効化）
+※ 別途DL360等に専用チップが載っていることもあるらしい
+
+DBクラスタ起動スクリプトからwatchdog.serviceを起動する（/dev/watchdogへのキックを開始する）
+ワッチドッグは一度起動したら停止させるようなものではない
+
+CPUからできるだけ遠く、標準的なものという観点からIPMI Watchdogを選択した

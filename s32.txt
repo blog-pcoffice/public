@@ -1,0 +1,314 @@
+# /usr/local/bin/i_is_normal_status.bash
+pid: 22296 (i_is_normal_status.bash)
+Cluster name: pgrex_cluster
+Cluster Summary:
+  * Stack: corosync
+  * Current DC: ol-101 (1) (version 2.0.4-6.el8_3.2-2deceaa3ae) - partition with quorum
+  * Last updated: Thu Sep  2 12:38:54 2021
+  * Last change:  Thu Sep  2 12:37:48 2021 by root via crm_attribute on ol-101
+  * 2 nodes configured
+  * 8 resource instances configured
+
+Node List:
+  * Online: [ ol-101 (1) ol-102 (2) ]
+
+Full List of Resources:
+  * Resource Group: primary-group:
+    * ipaddr-primary    (ocf::heartbeat:IPaddr2):        Started ol-101
+    * ipaddr-replication        (ocf::heartbeat:IPaddr2):        Started ol-101
+  * Clone Set: pgsql-clone [pgsql] (promotable):
+    * pgsql     (ocf::linuxhajp:pgsql):  Master ol-101
+    * pgsql     (ocf::linuxhajp:pgsql):  Slave ol-102
+  * Clone Set: ping-clone [ping]:
+    * ping      (ocf::pacemaker:ping):   Started ol-101
+    * ping      (ocf::pacemaker:ping):   Started ol-102
+  * fence1      (stonith:fence_ilo5_ssh):        Started ol-102
+  * fence2      (stonith:fence_ilo5_ssh):        Started ol-101
+
+Node Attributes:
+  * Node: ol-101 (1):
+    * master-pgsql                      : 1000
+    * pgsql-data-status                 : LATEST
+    * pgsql-master-baseline             : 00000000330000A0
+    * pgsql-status                      : PRI
+    * ping-status                       : 1
+  * Node: ol-102 (2):
+    * master-pgsql                      : 100
+    * pgsql-data-status                 : STREAMING|SYNC
+    * pgsql-status                      : HS:sync
+    * ping-status                       : 1
+
+Migration Summary:
+
+Tickets:
+
+PCSD Status:
+  ol-101: Online
+  ol-102: Online
+
+Daemon Status:
+  corosync: active/disabled
+  pacemaker: active/disabled
+  pcsd: active/enabled
+
+
+● httpd.service - The Apache HTTP Server
+   Loaded: loaded (/etc/systemd/system/httpd.service; disabled; vendor preset: disabled)
+   Active: active (running) since Thu 2021-09-02 12:37:05 JST; 1min 49s ago
+     Docs: man:httpd.service(8)
+ Main PID: 15409 (httpd)
+   Status: "Running, listening on: port 443"
+    Tasks: 218 (limit: 824228)
+   Memory: 49.8M
+   CGroup: /system.slice/httpd.service
+           tq15409 /usr/sbin/httpd -DFOREGROUND
+           tq15424 /usr/bin/logger -S 8192 -p local5 err -t httpd_error
+           tq15426 /usr/bin/logger -S 8192 -p local5 err -t https_error
+           tq15427 /usr/bin/logger -S 8192 -p local4 info -t httpd_access
+           tq15428 /usr/bin/logger -S 8192 -p local4 info -t httpd_access
+           tq15429 /usr/bin/logger -S 8192 -p local4 info -t httpd_access
+           tq15430 /usr/sbin/httpd -DFOREGROUND
+           tq15431 /usr/sbin/httpd -DFOREGROUND
+           tq15432 /usr/sbin/httpd -DFOREGROUND
+           mq15433 /usr/sbin/httpd -DFOREGROUND
+
+ 9月 02 12:37:05 ol-101 httpd[15409]: AH00558: httpd: Could not reliably determine the server's fully qualified domain name, using 172.17.6.101. Set the 'ServerName' directive globally to suppress this message
+ 9月 02 12:37:05 ol-101 httpd_error[15412]: [Thu Sep 02 12:37:05.160546 2021] [suexec:notice] [pid 15409:tid 140187545889088] AH01232: suEXEC mechanism enabled (wrapper: /usr/sbin/suexec)
+ 9月 02 12:37:05 ol-101 https_error[15413]: [Thu Sep 02 12:37:05.161967 2021] [ssl:warn] [pid 15409:tid 140187545889088] AH01909: cluster.example.localdm:443:0 server certificate does NOT include an ID which matches the server name
+ 9月 02 12:37:05 ol-101 systemd[1]: Started The Apache HTTP Server.
+ 9月 02 12:37:05 ol-101 httpd_error[15412]: AH00558: httpd: Could not reliably determine the server's fully qualified domain name, using 172.17.6.101. Set the 'ServerName' directive globally to suppress this message
+ 9月 02 12:37:05 ol-101 https_error[15426]: [Thu Sep 02 12:37:05.285114 2021] [ssl:warn] [pid 15409:tid 140187545889088] AH01909: cluster.example.localdm:443:0 server certificate does NOT include an ID which matches the server name
+ 9月 02 12:37:05 ol-101 httpd_error[15424]: [Thu Sep 02 12:37:05.285366 2021] [lbmethod_heartbeat:notice] [pid 15409:tid 140187545889088] AH02282: No slotmem from mod_heartmonitor
+ 9月 02 12:37:05 ol-101 httpd[15409]: Server configured, listening on: port 443
+ 9月 02 12:37:05 ol-101 httpd_error[15424]: [Thu Sep 02 12:37:05.289289 2021] [mpm_event:notice] [pid 15409:tid 140187545889088] AH00489: Apache/2.4.37 (Oracle Linux) OpenSSL/1.1.1g configured -- resuming normal operations
+ 9月 02 12:37:05 ol-101 httpd_error[15424]: [Thu Sep 02 12:37:05.289518 2021] [core:notice] [pid 15409:tid 140187545889088] AH00094: Command line: '/usr/sbin/httpd -D FOREGROUND'
+
+
+● tomcat.service - Apache Tomcat application server.
+   Loaded: loaded (/etc/systemd/system/tomcat.service; disabled; vendor preset: disabled)
+   Active: active (running) since Thu 2021-09-02 12:37:02 JST; 1min 51s ago
+  Process: 15399 ExecStart=/apl/tomcat/bin/startup.sh (code=exited, status=0/SUCCESS)
+ Main PID: 15406 (java)
+    Tasks: 26 (limit: 824228)
+   Memory: 206.0M
+   CGroup: /system.slice/tomcat.service
+           mq15406 /usr/lib/jvm/jre/bin/java -Djava.util.logging.config.file=/apl/tomcat/conf/logging.properties -Djava.util.logging.manager=org.apache.juli.ClassLoaderLogManager -server -Xmx500m -XX:+UseG1GC -Djdk.tls.ephemeralDHKeySize=2048 -Djava.protocol.handler.pkgs=org.apache.catalina.webresources -Dorg.apache.catalina.security.SecurityListener.UMASK=0027 -Dignore.endorsed.dirs= -classpath /apl/tomcat/log4j/lib/*:/apl/tomcat/log4j/conf:/apl/tomcat/bin/bootstrap.jar:/apl/tomcat/bin/tomcat-juli.jar -Dcatalina.base=/apl/tomcat -Dcatalina.home=/apl/tomcat -Djava.io.tmpdir=/apl/tomcat/temp org.apache.catalina.startup.Bootstrap start
+
+ 9月 02 12:37:02 ol-101 systemd[1]: Starting Apache Tomcat application server....
+ 9月 02 12:37:02 ol-101 systemd[1]: Started Apache Tomcat application server..
+
+
+Ethernet Channel Bonding Driver: v4.18.0-305.12.1.el8_4.x86_64
+
+Bonding Mode: fault-tolerance (active-backup)
+Primary Slave: eth0 (primary_reselect always)
+Currently Active Slave: eth0
+MII Status: up
+MII Polling Interval (ms): 0
+Up Delay (ms): 0
+Down Delay (ms): 0
+Peer Notification Delay (ms): 0
+
+Slave Interface: eth0
+MII Status: up
+Speed: 1000 Mbps
+Duplex: full
+Link Failure Count: 0
+Permanent HW addr: fc:15:b4:27:9e:38
+Slave queue ID: 0
+
+Slave Interface: eth2
+MII Status: up
+Speed: 1000 Mbps
+Duplex: full
+Link Failure Count: 0
+Permanent HW addr: a0:36:9f:51:2e:a4
+Slave queue ID: 0
+
+
+
+
+PING ol-102 (172.17.6.102) 56(84) bytes of data.
+64 bytes from ol-102 (172.17.6.102): icmp_seq=1 ttl=64 time=0.250 ms
+
+--- ol-102 ping statistics ---
+1 packets transmitted, 1 received, 0% packet loss, time 0ms
+rtt min/avg/max/mdev = 0.250/0.250/0.250/0.000 ms
+
+
+PING 172.17.6.102 (172.17.6.102) 56(84) bytes of data.
+64 bytes from 172.17.6.102: icmp_seq=1 ttl=64 time=0.239 ms
+
+--- 172.17.6.102 ping statistics ---
+1 packets transmitted, 1 received, 0% packet loss, time 0ms
+rtt min/avg/max/mdev = 0.239/0.239/0.239/0.000 ms
+
+
+PING 10.17.6.102 (10.17.6.102) 56(84) bytes of data.
+64 bytes from 10.17.6.102: icmp_seq=1 ttl=64 time=0.255 ms
+
+--- 10.17.6.102 ping statistics ---
+1 packets transmitted, 1 received, 0% packet loss, time 0ms
+rtt min/avg/max/mdev = 0.255/0.255/0.255/0.000 ms
+
+
+PING 172.17.6.202 (172.17.6.202) 56(84) bytes of data.
+64 bytes from 172.17.6.202: icmp_seq=1 ttl=255 time=0.280 ms
+
+--- 172.17.6.202 ping statistics ---
+1 packets transmitted, 1 received, 0% packet loss, time 0ms
+rtt min/avg/max/mdev = 0.280/0.280/0.280/0.000 ms
+
+
+PING 10.17.6.1 (10.17.6.1) 56(84) bytes of data.
+64 bytes from 10.17.6.1: icmp_seq=1 ttl=64 time=12.6 ms
+
+--- 10.17.6.1 ping statistics ---
+1 packets transmitted, 1 received, 0% packet loss, time 0ms
+rtt min/avg/max/mdev = 12.602/12.602/12.602/0.000 ms
+
+
+PING 10.17.6.1 (10.17.6.1) 56(84) bytes of data.
+64 bytes from 10.17.6.1: icmp_seq=1 ttl=64 time=8.45 ms
+
+--- 10.17.6.1 ping statistics ---
+1 packets transmitted, 1 received, 0% packet loss, time 0ms
+rtt min/avg/max/mdev = 8.451/8.451/8.451/0.000 ms
+
+
+# /usr/local/bin/health_check_httpd_tomcat
+
+
+# ss -pantu
+Netid  State      Recv-Q  Send-Q    Local Address:Port      Peer Address:Port   Process
+udp    ESTAB      0       0             127.0.0.1:33643        127.0.0.1:33643   users:(("postgres",pid=18724,fd=9),("postgres",pid=17310,fd=9),("postgres",pid=17309,fd=9),("postgres",pid=17308,fd=9),("postgres",pid=14897,fd=9),("postgres",pid=14893,fd=9),("postgres",pid=14892,fd=9),("postgres",pid=14891,fd=9),("postgres",pid=14866,fd=9))
+udp    UNCONN     0       0               0.0.0.0:45548          0.0.0.0:*       users:(("rsyslogd",pid=2436,fd=6))
+udp    UNCONN     0       0               0.0.0.0:60494          0.0.0.0:*       users:(("rsyslogd",pid=2436,fd=12))
+udp    UNCONN     0       0               0.0.0.0:53             0.0.0.0:*       users:(("dnsmasq",pid=2423,fd=4))
+udp    UNCONN     0       0               0.0.0.0:123            0.0.0.0:*       users:(("chronyd",pid=1824,fd=6))
+udp    UNCONN     0       0             127.0.0.1:323            0.0.0.0:*       users:(("chronyd",pid=1824,fd=5))
+udp    UNCONN     0       0               0.0.0.0:514            0.0.0.0:*       users:(("rsyslogd",pid=2436,fd=4))
+udp    UNCONN     0       0          172.17.6.101:5405           0.0.0.0:*       users:(("corosync",pid=14297,fd=31))
+udp    UNCONN     0       0           10.17.6.101:5406           0.0.0.0:*       users:(("corosync",pid=14297,fd=32))
+udp    UNCONN     0       0               0.0.0.0:21788          0.0.0.0:*       users:(("java",pid=15406,fd=10))
+tcp    LISTEN     0       32              0.0.0.0:53             0.0.0.0:*       users:(("dnsmasq",pid=2423,fd=5))
+tcp    LISTEN     0       128             0.0.0.0:22             0.0.0.0:*       users:(("sshd",pid=2428,fd=3))
+tcp    LISTEN     0       128             0.0.0.0:5432           0.0.0.0:*       users:(("postgres",pid=14866,fd=3))
+tcp    LISTEN     0       128             0.0.0.0:443            0.0.0.0:*       users:(("httpd",pid=15433,fd=3),("httpd",pid=15432,fd=3),("httpd",pid=15431,fd=3),("httpd",pid=15409,fd=3))
+tcp    LISTEN     0       1             127.0.0.1:8005           0.0.0.0:*       users:(("java",pid=15406,fd=57))
+tcp    LISTEN     0       100             0.0.0.0:8080           0.0.0.0:*       users:(("java",pid=15406,fd=48))
+tcp    LISTEN     0       128             0.0.0.0:2224           0.0.0.0:*       users:(("pcsd",pid=2476,fd=7))
+tcp    ESTAB      0       0          172.17.6.100:5432      172.17.6.102:19330   users:(("postgres",pid=18724,fd=10))
+tcp    TIME-WAIT  0       0          172.17.6.101:23888     172.17.6.102:22     
+tcp    ESTAB      0       0          172.17.6.101:22         172.17.6.99:57202   users:(("sshd",pid=2878,fd=4),("sshd",pid=2866,fd=4))
+tcp    TIME-WAIT  0       0          172.17.6.101:2224      172.17.6.101:48128  
+
+
+# ip addr show | grep inet
+    inet 127.0.0.1/8 scope host lo
+    inet 172.17.6.101/24 brd 172.17.6.255 scope global bond0
+    inet 172.17.6.100/24 brd 172.17.6.255 scope global secondary bond0
+    inet 10.17.6.101/24 brd 10.17.6.255 scope global bond1
+    inet 10.17.6.100/24 brd 10.17.6.255 scope global secondary bond1
+
+
+# ip route show | LANG=C sort
+0.0.0.0/1 via 172.17.6.1 dev bond0
+10.17.6.0/24 dev bond1 proto kernel scope link src 10.17.6.101
+128.0.0.0/1 via 172.17.6.1 dev bond0
+172.17.6.0/24 dev bond0 proto kernel scope link src 172.17.6.101
+default via 10.17.6.1 dev bond1
+
+
+# w
+ 12:38:54 up  2:30,  1 user,  load average: 0.32, 0.32, 0.32
+USER     TTY      FROM             LOGIN@   IDLE   JCPU   PCPU WHAT
+root     pts/0    172.17.6.99      10:11    5.00s  0.14s  0.00s w
+
+
+# df -H
+ファイルシス            サイズ  使用  残り 使用% マウント位置
+devtmpfs                   68G     0   68G    0% /dev
+tmpfs                      68G   50M   68G    1% /dev/shm
+tmpfs                      68G   18M   68G    1% /run
+tmpfs                      68G     0   68G    0% /sys/fs/cgroup
+/dev/mapper/vg0-root      194G  4.8G  189G    3% /
+/dev/sda1                 4.3G  363M  4.0G    9% /boot
+/dev/mapper/luks-backup   2.0T   81G  2.0T    5% /backup
+/dev/loop0                 10G   10G     0  100% /backup/mntiso
+tmpfs                      14G     0   14G    0% /run/user/0
+
+
+# free -h
+              total        used        free      shared  buff/cache   available
+Mem:          125Gi       4.0Gi       110Gi        80Mi        11Gi       120Gi
+Swap:         4.0Gi          0B       4.0Gi
+
+
+# ipmitool sdr list all
+UID Light        | 0x00              | ok
+Health LED       | 0x00              | ok
+01-Inlet Ambient | 22 degrees C      | ok
+02-CPU 1         | 40 degrees C      | ok
+03-CPU 2         | disabled          | ns
+04-P1 DIMM 1-6   | 33 degrees C      | ok
+05-P1 DIMM 7-12  | 35 degrees C      | ok
+06-P2 DIMM 1-6   | disabled          | ns
+07-P2 DIMM 7-12  | disabled          | ns
+08-P1 Mem Zone   | 34 degrees C      | ok
+09-P1 Mem Zone   | 33 degrees C      | ok
+10-P1 Mem Zone   | 33 degrees C      | ok
+11-P1 Mem Zone   | 37 degrees C      | ok
+12-P1 Mem Zone   | 37 degrees C      | ok
+13-P1 Mem Zone   | 37 degrees C      | ok
+14-P2 Mem Zone   | 30 degrees C      | ok
+15-P2 Mem Zone   | 28 degrees C      | ok
+16-P2 Mem Zone   | 27 degrees C      | ok
+17-P2 Mem Zone   | 29 degrees C      | ok
+18-P2 Mem Zone   | 28 degrees C      | ok
+19-P2 Mem Zone   | 29 degrees C      | ok
+20-HD Max        | disabled          | ns
+21-Chipset       | 44 degrees C      | ok
+22-P/S           | disabled          | ns
+23-VR P1         | 33 degrees C      | ok
+24-VR P2         | 24 degrees C      | ok
+25-VR P1 Zone    | 36 degrees C      | ok
+26-VR P1 Mem     | 32 degrees C      | ok
+27-VR P1 Mem     | 36 degrees C      | ok
+28-VR P2 Mem     | 25 degrees C      | ok
+29-VR P2 Mem     | 25 degrees C      | ok
+30-Supercap Max  | disabled          | ns
+31-iLO Zone      | 34 degrees C      | ok
+32-LOM           | disabled          | ns
+33-PCI 1         | disabled          | ns
+34-PCI 2         | disabled          | ns
+35-PCI 1 Zone    | 31 degrees C      | ok
+36-PCI 2 Zone    | 32 degrees C      | ok
+37-LOM Card      | disabled          | ns
+38-System Board  | 26 degrees C      | ok
+39-Sys Exhaust   | 34 degrees C      | ok
+Fan 1            | disabled          | ns
+Fan 2            | disabled          | ns
+Fan 3            | 27.44 percent     | ok
+Fan 4            | 27.44 percent     | ok
+Fan 5            | disabled          | ns
+Fan 6            | 35.28 percent     | ok
+Fan 7            | 35.28 percent     | ok
+Fan 8            | 35.28 percent     | ok
+Power Supply 1   | 0x00              | ok
+Fans             | 0x00              | ok
+Memory           | 0x00              | ok
+BMC CONTROLLER   | Log FRU @EEh 17.1 | ok
+MB BIOS          | Log FRU @EFh 22.1 | ok
+CPU 1            | Log FRU @10h 41.1 | ok
+CPU 1 DIMM 1     | Log FRU @6Eh 20.1 | ok
+CPU 1 DIMM 2     | Log FRU @6Fh 20.2 | ok
+CPU 1 DIMM 4     | Log FRU @70h 20.4 | ok
+CPU 1 DIMM 5     | Log FRU @71h 20.5 | ok
+CPU 1 DIMM 8     | Log FRU @72h 20.8 | ok
+CPU 1 DIMM 9     | Log FRU @73h 20.9 | ok
+CPU 1 DIMM 11    | Log FRU @74h 20.b | ok
+CPU 1 DIMM 12    | Log FRU @75h 20.c | ok
+
+
+Success all.

@@ -1,0 +1,62 @@
+cat << 'EOF' | tee /usr/local/bin/i_check_crond_proc.bash
+#!/bin/bash
+
+SCRIPT_VER="1.0.0"
+ERR_SINGLETON_COUNT=10
+MAINTENANCE_FILE=ignore_MAINTENANCE_FILE
+. /usr/local/bin/i_common.include
+
+if [ $# -ge 1 ]; then
+  $IS_TTY && echo "Arg: $@ ($#) / too many." >&2
+  exit 1
+fi
+
+while :; do
+  sleep 60
+  exec > /var/run/$SCRIPT_ID/log 2>&1
+  if systemctl status crond.service; then
+    LANG=C date > /var/run/$SCRIPT_ID/date
+    rm -f /etc/sysconfig/ERROR_CONTROL_CHECK_CROND
+  else
+    [ -e /etc/sysconfig/ERROR_CONTROL_CHECK_CROND ] || $LOGGER "$FATAL_ERROR crond process is not normal status."
+    systemctl stop crond.service
+    sleep 1
+    systemctl start crond.service
+  fi
+  echo ""
+  echo ""
+  if timeout 10 ssh $i_peer systemctl status crond.service; then
+    LANG=C date > /var/run/$SCRIPT_ID/peer_date
+    rm -f /etc/sysconfig/ERROR_CONTROL_CHECK_PEER_CROND
+  else
+    [ -e /etc/sysconfig/ERROR_CONTROL_CHECK_PEER_CROND ] || $LOGGER "$FATAL_ERROR Peer's crond process is not normal status."
+    timeout 10 ssh $i_peer systemctl stop crond.service
+    sleep 1
+    timeout 10 ssh $i_peer systemctl start crond.service
+  fi
+  echo ""
+  echo ""
+  if timeout 10 ssh $i_peer systemctl status i_check_crond_proc.service; then
+    LANG=C date > /var/run/$SCRIPT_ID/peer_daemon_date
+    rm -f /etc/sysconfig/ERROR_CONTROL_CHECK_PEER_DAEMON
+  else
+    [ -e /etc/sysconfig/ERROR_CONTROL_CHECK_PEER_DAEMON ] || $LOGGER "$FATAL_ERROR Peer's check crond process is not normal status."
+    timeout 10 ssh $i_peer systemctl stop i_check_crond_proc.service
+    sleep 1
+    timeout 10 ssh $i_peer systemctl start i_check_crond_proc.service
+  fi
+done
+EOF
+chmod 755 /usr/local/bin/i_check_crond_proc.bash
+cat << 'EOF' | tee /etc/systemd/system/i_check_crond_proc.service
+[Unit]
+Description=Check crond process
+
+[Service]
+ExecStart=/usr/local/bin/i_check_crond_proc.bash
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target 
+EOF
+systemctl enable i_check_crond_proc.service

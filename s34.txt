@@ -1,0 +1,112 @@
+cat << 'EOF' | tee /usr/local/bin/i_common.include || $Error :
+SCRIPT_ID=$(basename -- "$0")
+if [ -d /backup/self ]; then
+  mkdir -p /backup/self/log/$SCRIPT_ID/
+  exec > /backup/self/log/$SCRIPT_ID/log 2>&1
+else
+  mkdir -p /root/log/$SCRIPT_ID/
+  exec > /root/log/$SCRIPT_ID/log 2>&1
+fi
+set -x
+
+COMMON_SCRIPT_VER="1.0.0"
+SCRIPT_VER=${SCRIPT_VER:="Unknown"}
+ERR_SINGLETON_COUNT=${ERR_SINGLETON_COUNT:=10}
+SCRIPT_PATH=${SCRIPT_PATH:="/usr/local/bin"}
+MAINTENANCE_FILE=${MAINTENANCE_FILE:="/etc/sysconfig/MaintenanceWorkInProgress"}
+
+LOGGER_INFO="/usr/bin/logger --tag $SCRIPT_ID --priority local6.info --id=$$"
+$LOGGER_INFO 'started.'
+trap "$LOGGER_INFO 'ended.'" 0
+LOGGER="/usr/bin/logger --tag $SCRIPT_ID --priority local6.err --id=$$"
+FATAL_ERROR="@FATAL_ERROR:"
+
+if tty > /dev/null 2>&1; then
+  IS_TTY=true
+  ECHODEV="tee $(tty)"
+else
+  IS_TTY=false
+  ECHODEV=""
+fi
+
+if [ "$1" = "-v" ]; then
+  $IS_TTY && echo "version: $SCRIPT_VER ($SCRIPT_ID) / $COMMON_SCRIPT_VER (i_common.include)" | $ECHODEV
+  exit 0
+fi
+
+if [ "$1" = "-h" ]; then
+  if $IS_TTY; then
+    echo ""
+    echo "[ Common Arguments ]"
+    echo "$0 -h"
+    echo "    print this. (for manual option)"
+    echo "$0 -v"
+    echo "    print version. (for manual option)"
+    echo "$0 -r"
+    echo "    remove /var/run/$SCRIPT_ID/ directory. (for manual option)"
+    echo "$0 -f ..."
+    echo "    force execution with $MAINTENANCE_FILE file."
+    echo ""
+    type -t print_help > /dev/null 2>&1 && print_help
+  fi | $ECHODEV
+  exit 0
+fi
+
+if [ ${EUID:-${UID}} -ne 0 ]; then
+    $IS_TTY && echo "I am not root." | $ECHODEV
+    exit 1
+fi
+
+if [ "$1" = "-r" ]; then
+  [ -d /var/run/$SCRIPT_ID ] || exit 0
+  if ps --pid "$(cat /var/run/$SCRIPT_ID/pid 2> /dev/null)" > /dev/null 2>&1; then
+    $IS_TTY && echo "Warning: $SCRIPT_ID is running. Nothing to do." | $ECHODEV
+    $IS_TTY && echo "" | $ECHODEV
+    $IS_TTY && ps -f --pid $(cat /var/run/$SCRIPT_ID/pid) | $ECHODEV
+  else
+    sleep 1
+    if ps --pid "$(cat /var/run/$SCRIPT_ID/pid 2> /dev/null)" > /dev/null 2>&1; then
+      $IS_TTY && echo "Warning: $SCRIPT_ID is running. Nothing to do." | $ECHODEV
+      $IS_TTY && echo "" | $ECHODEV
+      $IS_TTY && ps -f --pid $(cat /var/run/$SCRIPT_ID/pid) | $ECHODEV
+    else
+      rm -rf /var/run/$SCRIPT_ID/
+    fi
+  fi
+  exit 0
+fi
+
+if [ "$1" = "-f" ]; then
+  shift
+else
+  if [ -f $MAINTENANCE_FILE ]; then
+      $IS_TTY && echo "$MAINTENANCE_FILE file exists. Nothing to do." | $ECHODEV
+      exit 0
+  fi
+fi
+
+if mkdir /var/run/$SCRIPT_ID 2> /dev/null; then
+  trap "rm -rf /var/run/$SCRIPT_ID;$LOGGER_INFO 'ended.'" 0
+  echo $$ > /var/run/$SCRIPT_ID/pid
+  rm -f /var/run/${SCRIPT_ID}_err_singleton
+else
+  if $IS_TTY; then
+    echo "Warning: $SCRIPT_ID is running. Nothing to do." | $ECHODEV
+    sleep 1
+    echo "" | $ECHODEV
+    ps -f --pid $(cat /var/run/$SCRIPT_ID/pid) | $ECHODEV
+  fi
+  touch /var/run/${SCRIPT_ID}_err_singleton
+  i=$(($(cat /var/run/${SCRIPT_ID}_err_singleton)+1))
+  echo $i > /var/run/${SCRIPT_ID}_err_singleton
+  if [ $i -ge $ERR_SINGLETON_COUNT ]; then
+    $IS_TTY && echo "$FATAL_ERROR $i consecutive singleton errors. Implement first aid: sudo $SCRIPT_PATH/$SCRIPT_ID -r" | $ECHODEV
+    $LOGGER "$FATAL_ERROR $i consecutive singleton errors. Implement first aid: sudo $SCRIPT_PATH/$SCRIPT_ID -r"
+  fi
+  exit 1
+fi
+$IS_TTY && echo "pid: $(cat /var/run/$SCRIPT_ID/pid) ($SCRIPT_ID)" | $ECHODEV
+
+[ -r /etc/i_env ] && . /etc/i_env
+EOF
+ln -sf /usr/local/bin/i_common.include /root/i_common.include

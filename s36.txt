@@ -1,0 +1,74 @@
+cat << 'EOF' | tee /usr/local/bin/i_aide_check.bash || $Error :
+#!/bin/bash
+
+SCRIPT_VER="1.0.0"
+print_help()
+{
+  echo "[ Arguments for $SCRIPT_ID ]"
+  echo "$0 [-f] -a"
+  echo "    auto update database mode"
+  echo "$0 [-f] [-m]"
+  echo "    manual update database mode (default)"
+  echo "$0 [-f] -i"
+  echo "    initialize database"
+  echo ""
+}
+. /usr/local/bin/i_common.include
+if [ $# -ge 2 ]; then
+  echo "Arg: $@ ($#) / too many." | $ECHODEV
+  exit 1
+fi
+if [ "$1" = "" -o "$1" = "-a" -o "$1" = "-m" -o "$1" = "-i" ]; then
+ :
+else
+  echo "Unknon Arguments: $1" | $ECHODEV
+  exit 1
+fi
+
+if [ "$1" = "-i" ]; then
+  find /var/lib/aide/ -type f -print0 | xargs -0 /usr/bin/shred -uvz
+  rm -rf /var/lib/aide/
+  mkdir -m 700 /var/lib/aide/
+  find /var/log/aide/ -type f -print0 | xargs -0 /usr/bin/shred -uvz
+  rm -rf /var/log/aide/
+  mkdir -m 700 /var/log/aide/
+fi
+
+if [ ! -r /var/lib/aide/aide.db.gz ]; then
+  /usr/sbin/aide --init | $ECHODEV
+  rc=$?
+  mv -f /var/lib/aide/aide.db{.new,}.gz
+  exit $rc
+fi
+
+[ -r /var/lib/aide/aide.db.new.gz ] && rm -f /var/lib/aide/aide.db.new.gz
+
+msg="$(/usr/sbin/aide --update 2>&1)"
+rc=$?
+echo "$msg" | $ECHODEV
+if [ $rc -eq 0 ]; then
+  rm -f /var/lib/aide/aide.db.new.gz
+  exit 0
+else
+  mkdir -p /backup/self/aide/
+  log=/backup/self/aide/aide_$(/usr/bin/date "+%Y%m%d_%H%M%S").log
+  cp -a /var/log/aide/aide.log $log
+  chmod 400 $log
+  $LOGGER "$FATAL_ERROR Manipulation was detected. log: sudo cat $log"
+  echo "" | $ECHODEV
+  echo "" | $ECHODEV
+  echo "@@@@$FATAL_ERROR Manipulation was detected. @@@@@" | $ECHODEV
+  echo "@@@@$FATAL_ERROR Manipulation was detected. @@@@@" | $ECHODEV
+  echo "@@@@$FATAL_ERROR Manipulation was detected. @@@@@" | $ECHODEV
+  echo "@@@@$FATAL_ERROR Manipulation was detected. @@@@@" | $ECHODEV
+  echo "@@@@$FATAL_ERROR Manipulation was detected. @@@@@" | $ECHODEV
+  echo "" | $ECHODEV
+  if [ "$1" = "-a" ]; then
+    mv -f /var/lib/aide/aide.db{.new,}.gz
+  else
+    rm -f /var/lib/aide/aide.db.new.gz
+  fi
+  exit 1
+fi
+EOF
+chmod 755 /usr/local/bin/i_aide_check.bash || $Error :

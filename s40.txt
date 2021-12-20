@@ -1,0 +1,20 @@
+cat << 'EOF' | sudo tee i_delete_onlinebackup.bash
+#!/bin/bash
+
+SCRIPT_VER="1.0.0"
+. /usr/local/bin/i_common.include
+if [ $# -ge 1 ]; then
+  echo "Arg: $@ ($#) / too many." | $ECHODEV
+  exit 1
+fi
+
+/usr/bin/find /backup/self/onlinebackup/ -maxdepth 1 -type d -name '*_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]_[0-9][0-9][0-9][0-9]' ! -newer $(ls -d /backup/self/onlinebackup/*-full 2> /dev/null | tail -1) 2> /dev/null | xargs rm -rf 2> /dev/null >&2
+
+/usr/bin/find /backup/self/onlinebackup/ -maxdepth 1 -daystart -mtime +37 -type d | xargs rm -rf 2> /dev/null >&2
+
+:
+EOF
+chmod 755 /usr/local/bin/i_delete_onlinebackup.bash || $Error :
+
+sudo sed -i -e '/maxdepth/d' /etc/crontab
+echo '14 0 * * * root /usr/local/bin/i_delete_onlinebackup.bash > /dev/null 2>&1 || :' | sudo tee -a /etc/crontab
